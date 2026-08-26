@@ -119,7 +119,7 @@ local mm2Tracks = {}
 local defaultSetts = {
     rainbow = true, targetSpeed = 16, targetJump = 50, flySpeed = 50, goldPartDuration = 3,
     selectedPackData = nil, autoPlaySong = false, lastPlayedSongId = nil,
-    bhopMaxSpeed = 100, toggles = {}
+    bhopMaxSpeed = 100, toggles = {}, theme = "Dark"
 }
 local mySetts = {}
 for k, v in pairs(defaultSetts) do mySetts[k] = v end
@@ -195,12 +195,32 @@ local function toggleFly()
     end
 end
 
-local playAnim, doFastReset
+local playAnim, doFastReset, doInvisEx
 
 -- GUI Инстанс
 local sgui = make("ScreenGui", {Name="SolaraKutomHub", ResetOnSpawn=false, IgnoreGuiInset=true})
 pcall(function() sgui.Parent = game:GetService("CoreGui") end)
 if not sgui.Parent then sgui.Parent = player:WaitForChild("PlayerGui") end
+
+-- ВОТЕРМАРКА (WATERMARK)
+local watermark = make("Frame", {Size = UDim2.new(0, 0, 0, 26), AutomaticSize = Enum.AutomaticSize.X, Position = UDim2.new(1, -20, 0, 20), AnchorPoint = Vector2.new(1, 0), BackgroundColor3 = Color3.fromRGB(15, 15, 18), Visible = mySetts.showWatermark ~= false}, sgui)
+addCorner(watermark, 6)
+local wmStroke = addStroke(watermark, Color3.fromRGB(45, 42, 55), 1)
+make("UIPadding", {PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)}, watermark)
+local wmText = make("TextLabel", {Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Text = "KutomHub | FPS: 0 | Ping: 0 ms", TextColor3 = Color3.fromRGB(220, 220, 220), Font = Enum.Font.GothamBold, TextSize = 12}, watermark)
+
+local wmLastTick = tick()
+local wmFrames = 0
+RS.RenderStepped:Connect(function()
+    wmFrames = wmFrames + 1
+    if tick() - wmLastTick >= 1 then
+        local ping = "N/A"
+        pcall(function() ping = string.split(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValueString(), " ")[1] end)
+        wmText.Text = string.format("KutomHub | FPS: %d | Ping: %s ms", wmFrames, tostring(ping))
+        wmFrames = 0
+        wmLastTick = tick()
+    end
+end)
 
 -- УВЕДОМЛЕНИЕ
 local noticeFrame = make("Frame", {Size = UDim2.new(0, 340, 0, 45), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 80), BackgroundColor3 = Color3.fromRGB(30, 180, 70), ZIndex = 9999}, sgui)
@@ -216,7 +236,7 @@ end
 
 -- ================== ОСНОВНОЕ ОКНО ==================
 local mainFrame = make("Frame", {Size = UDim2.new(0, 780, 0, 500), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), BackgroundColor3 = Color3.fromRGB(15, 15, 18), Active = true, Draggable = true, ClipsDescendants = true, Visible = false}, sgui)
-addStroke(mainFrame, Color3.fromRGB(45, 42, 55), 2) addCorner(mainFrame, 8) 
+local mainStroke = addStroke(mainFrame, Color3.fromRGB(45, 42, 55), 2) addCorner(mainFrame, 8) 
 
 local topBar = make("Frame", {Size = UDim2.new(1, 0, 0, 32), BackgroundColor3 = Color3.fromRGB(18, 18, 22)}, mainFrame)
 local logoLabel = make("TextLabel", {Size = UDim2.new(0, 200, 1, 0), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, TextColor3 = Color3.fromRGB(220, 100, 60), Text = "Universal KutomHub", Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left}, topBar)
@@ -338,7 +358,7 @@ UIS.InputBegan:Connect(function(inp, gp)
     
     if inp.UserInputType == Enum.UserInputType.Keyboard then
         local k = inp.KeyCode.Name
-        if k == "Insert" then toggleMenu() return end
+        if k == "Delete" then toggleMenu() return end
         
         for id, bk in pairs(binds) do
             if bk == k then
@@ -346,6 +366,8 @@ UIS.InputBegan:Connect(function(inp, gp)
                     toggleFly() 
                 elseif id == "Other_FastReset" then 
                     if doFastReset then doFastReset() end
+                elseif id == "Setts_InvisEx" then
+                    if doInvisEx then doInvisEx() end
                 elseif string.sub(id, 1, 3) == "TP_" then 
                     local tName = string.sub(id, 4) 
                     if teleports[tName] then tpToPos(CFrame.new(unpack(teleports[tName].pos))) end 
@@ -424,8 +446,8 @@ local function CreateToggleWithBind(page, text, bindId, initialState, callback, 
     return SetState
 end
 
-local function CreateActionRow(page, inputHolder, btn1Txt, btn1Cb, btn2Txt, btn2Cb)
-    local Row = make("Frame", {Size = UDim2.new(1, -10, 0, 35), BackgroundTransparency = 1}, page)
+local function CreateActionRow(page, inputHolder, btn1Txt, btn1Cb, btn2Txt, btn2Cb, layoutOrder)
+    local Row = make("Frame", {Size = UDim2.new(1, -10, 0, 35), BackgroundTransparency = 1, LayoutOrder = layoutOrder or 0}, page)
     local Inp = make("TextBox", {Size = UDim2.new(0.4, -5, 1, 0), BackgroundColor3 = Color3.fromRGB(25, 25, 32), PlaceholderText = inputHolder, PlaceholderColor3 = Color3.fromRGB(200, 200, 200), Text = "", TextColor3 = Color3.fromRGB(255, 255, 255), Font = Enum.Font.Gotham, TextSize = 12}, Row) addCorner(Inp, 6)
     local Btn1 = make("TextButton", {Size = UDim2.new(0.4, -5, 1, 0), Position = UDim2.new(0.4, 5, 0, 0), BackgroundColor3 = Color3.fromRGB(40, 120, 200), Text = btn1Txt, TextColor3 = Color3.fromRGB(255, 255, 255), Font = Enum.Font.GothamBold, TextSize = 12}, Row) addCorner(Btn1, 6)
     Btn1.MouseButton1Click:Connect(function() btn1Cb(Inp.Text) end)
@@ -437,6 +459,115 @@ local function CreateActionRow(page, inputHolder, btn1Txt, btn1Cb, btn2Txt, btn2
         Inp.Size = UDim2.new(0.6, -5, 1, 0) Btn1.Size = UDim2.new(0.4, 0, 1, 0) Btn1.Position = UDim2.new(0.6, 5, 0, 0)
     end
 end
+
+-- СНАЙПЕР ИГРОКОВ (ПОИСК СЕРВЕРА)
+local function snipePlayer(targetName)
+    showNotice("🔍 Поиск " .. targetName .. " (жди 10-20 сек)...")
+    task.spawn(function()
+        local success, targetId = pcall(function() return Players:GetUserIdFromNameAsync(targetName) end)
+        if not success or not targetId then showNotice("⚠️ Игрок " .. targetName .. " не найден!") return end
+        
+        local reqFunc = request or http_request or (syn and syn.request) or (fluxus and fluxus.request)
+        if not reqFunc then
+            showNotice("⚠️ Твой экзекутор не поддерживает поиск (нужен HTTP Request)!")
+            return
+        end
+        
+        local thumbUrl = "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds="..targetId.."&size=150x150&format=Png&isCircular=false"
+        local thumbRes
+        pcall(function() thumbRes = Http:JSONDecode(game:HttpGet(thumbUrl)) end)
+        
+        if not thumbRes or not thumbRes.data or not thumbRes.data[1] then 
+            showNotice("⚠️ Не удалось получить аватар игрока!") 
+            return 
+        end
+        local targetImage = thumbRes.data[1].imageUrl
+
+        local cursor = ""
+        local foundServerId = nil
+        
+        for i = 1, 10 do
+            if foundServerId then break end
+            local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"
+            if cursor ~= "" then url = url .. "&cursor=" .. cursor end
+            
+            local res
+            pcall(function() res = Http:JSONDecode(game:HttpGet(url)) end)
+            if not res or not res.data then break end
+            
+            for _, server in ipairs(res.data) do
+                if type(server) == "table" and server.playerTokens and #server.playerTokens > 0 and server.playing < server.maxPlayers then
+                    local reqBody = {}
+                    for _, token in ipairs(server.playerTokens) do
+                        table.insert(reqBody, {
+                            requestId = token,
+                            type = "AvatarHeadshot",
+                            targetId = 0,
+                            sessionId = "",
+                            size = "150x150",
+                            format = "png",
+                            isCircular = false
+                        })
+                    end
+                    
+                    local thumbCheck
+                    pcall(function()
+                        local r = reqFunc({
+                            Url = "https://thumbnails.roblox.com/v1/batch",
+                            Method = "POST",
+                            Headers = {["Content-Type"] = "application/json", ["Accept"] = "application/json"},
+                            Body = Http:JSONEncode(reqBody)
+                        })
+                        thumbCheck = Http:JSONDecode(r.Body)
+                    end)
+                    
+                    if thumbCheck and thumbCheck.data then
+                        for _, tokenData in ipairs(thumbCheck.data) do
+                            if tokenData.imageUrl == targetImage then
+                                foundServerId = server.id
+                                break
+                            end
+                        end
+                    end
+                end
+                if foundServerId then break end
+            end
+            cursor = res.nextPageCursor
+            if not cursor then break end
+        end
+        
+        if foundServerId then
+            showNotice("✅ Игрок найден! Подключаемся...")
+            TPS:TeleportToPlaceInstance(game.PlaceId, foundServerId, player)
+        else
+            showNotice("❌ Игрок не найден на открытых серверах.")
+        end
+    end)
+end
+
+-- ТЕМЫ ОФОРМЛЕНИЯ
+local function SetTheme(tName)
+    local themes = {
+        ["Dark"] = {bg = Color3.fromRGB(15, 15, 18), top = Color3.fromRGB(18, 18, 22), side = Color3.fromRGB(12, 12, 15), cont = Color3.fromRGB(18, 18, 22), stroke = Color3.fromRGB(45, 42, 55)},
+        ["Blood"] = {bg = Color3.fromRGB(20, 5, 5), top = Color3.fromRGB(25, 8, 8), side = Color3.fromRGB(15, 5, 5), cont = Color3.fromRGB(25, 8, 8), stroke = Color3.fromRGB(60, 20, 20)},
+        ["Ocean"] = {bg = Color3.fromRGB(5, 10, 20), top = Color3.fromRGB(8, 15, 25), side = Color3.fromRGB(5, 8, 15), cont = Color3.fromRGB(8, 15, 25), stroke = Color3.fromRGB(20, 40, 70)},
+        ["Midnight"] = {bg = Color3.fromRGB(10, 10, 12), top = Color3.fromRGB(15, 15, 18), side = Color3.fromRGB(8, 8, 10), cont = Color3.fromRGB(15, 15, 18), stroke = Color3.fromRGB(30, 30, 40)}
+    }
+    local th = themes[tName]
+    if not th then return end
+    
+    mainFrame.BackgroundColor3 = th.bg
+    topBar.BackgroundColor3 = th.top
+    sideBar.BackgroundColor3 = th.side
+    contentContainer.BackgroundColor3 = th.cont
+    if watermark then watermark.BackgroundColor3 = th.bg end
+    if mainStroke then mainStroke.Color = th.stroke end
+    if wmStroke then wmStroke.Color = th.stroke end
+    
+    mySetts.theme = tName
+    saveData()
+end
+task.spawn(function() SetTheme(mySetts.theme or "Dark") end)
 
 -- ================== 1. ЭМОЦИИ ==================
 do
@@ -1183,14 +1314,6 @@ end
 
 -- ================== 4. VIP-МЕНЮ ==================
 do
-    CreateLabel(vVip, "Kutom Fling Script")
-    CreateButton(vVip, "🌪️ Запустить KutomFling", function()
-        pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/Egorzq/KutomHub/refs/heads/main/Simple-KutomFling"))()
-            showNotice("KutomFling запущен!")
-        end)
-    end, Color3.fromRGB(150, 50, 200))
-
     CreateLabel(vVip, "Статы Игрока")
     CreateActionRow(vVip, "Скорость (16)", "Применить Скор.", function(val)
         local n = tonumber(val) if n and player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
@@ -1209,9 +1332,9 @@ do
         mySetts.targetJump = 50 saveData() if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then player.Character:FindFirstChildOfClass("Humanoid").UseJumpPower = true player.Character:FindFirstChildOfClass("Humanoid").JumpPower = 50 end
     end)
 
-    CreateLabel(vVip, "Чит-моды", 4)
+    CreateLabel(vVip, "Чит-моды")
 
-    local flyBindCont = make("Frame", {Size = UDim2.new(1, -10, 0, 34), BackgroundTransparency = 1, LayoutOrder = 5}, vVip)
+    local flyBindCont = make("Frame", {Size = UDim2.new(1, -10, 0, 34), BackgroundTransparency = 1}, vVip)
     local flyBtnObj = make("TextButton", {Size = UDim2.new(1, -50, 1, 0), BackgroundColor3 = Color3.fromRGB(40, 120, 200), TextColor3 = Color3.fromRGB(255, 255, 255), Text = "Полет", Font = Enum.Font.GothamBold, TextSize = 12}, flyBindCont) addCorner(flyBtnObj, 6)
     local flyBindBtn = make("TextButton", {Size = UDim2.new(0, 45, 1, 0), Position = UDim2.new(1, -45, 0, 0), BackgroundColor3 = Color3.fromRGB(35, 35, 45), Font = Enum.Font.GothamBold, TextSize = 11}, flyBindCont) addCorner(flyBindBtn, 6)
     
@@ -1250,15 +1373,15 @@ do
         else
             if noclipConn then noclipConn:Disconnect() noclipConn = nil end
         end
-    end, 6)
+    end)
 
     local isInfJump = false
-    CreateToggleWithBind(vVip, "Бесконечный прыжок", false, false, function(state) isInfJump = state end, 7)
+    CreateToggleWithBind(vVip, "Бесконечный прыжок", false, false, function(state) isInfJump = state end)
     UIS.JumpRequest:Connect(function() 
         if isInfJump and player.Character then local h = player.Character:FindFirstChildOfClass("Humanoid") if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end end 
     end)
 
-    CreateToggleWithBind(vVip, "🛡️ Anti-Fling (Защита от флинга)", "VIP_AntiFling", false, function(state) isAntiFling = state end, 9)
+    CreateToggleWithBind(vVip, "🛡️ Anti-Fling (Защита от флинга)", "VIP_AntiFling", false, function(state) isAntiFling = state end)
     RS.Stepped:Connect(function()
         if isAntiFling then
             pcall(function()
@@ -1278,7 +1401,7 @@ do
         end
     end)
 
-    CreateLabel(vVip, "Взаимодействие с Игроками", 12)
+    CreateLabel(vVip, "Взаимодействие с Игроками")
     CreateActionRow(vVip, "Ник игрока...", "Телепорт к Игроку", function(val)
         local tName = val:lower() local t = nil
         for _, p in ipairs(Players:GetPlayers()) do
@@ -1597,18 +1720,26 @@ end
 
 -- ================== 7. НАСТРОЙКИ И КОНФИГИ ==================
 do
-    CreateLabel(vSetts, "Полезные Утилиты (Оптимизация)")
+    CreateLabel(vSetts, "Темы Оформления интерфейса", 1)
+    
+    local themeRow1 = make("Frame", {Size = UDim2.new(1, -10, 0, 34), BackgroundTransparency = 1, LayoutOrder = 2}, vSetts)
+    local btnDark = make("TextButton", {Size = UDim2.new(0.48, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(30, 30, 35), Text = "Стандарт (Dark)", TextColor3 = Color3.fromRGB(255, 255, 255), Font = Enum.Font.GothamBold, TextSize = 11}, themeRow1) addCorner(btnDark, 6)
+    local btnBlood = make("TextButton", {Size = UDim2.new(0.48, 0, 1, 0), Position = UDim2.new(0.52, 0, 0, 0), BackgroundColor3 = Color3.fromRGB(120, 40, 40), Text = "Кровавая (Blood)", TextColor3 = Color3.fromRGB(255, 255, 255), Font = Enum.Font.GothamBold, TextSize = 11}, themeRow1) addCorner(btnBlood, 6)
+    
+    local themeRow2 = make("Frame", {Size = UDim2.new(1, -10, 0, 34), BackgroundTransparency = 1, LayoutOrder = 3}, vSetts)
+    local btnOcean = make("TextButton", {Size = UDim2.new(0.48, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(40, 80, 140), Text = "Океан (Ocean)", TextColor3 = Color3.fromRGB(255, 255, 255), Font = Enum.Font.GothamBold, TextSize = 11}, themeRow2) addCorner(btnOcean, 6)
+    local btnMid = make("TextButton", {Size = UDim2.new(0.48, 0, 1, 0), Position = UDim2.new(0.52, 0, 0, 0), BackgroundColor3 = Color3.fromRGB(60, 60, 80), Text = "Полночь (Midnight)", TextColor3 = Color3.fromRGB(255, 255, 255), Font = Enum.Font.GothamBold, TextSize = 11}, themeRow2) addCorner(btnMid, 6)
+
+    btnDark.MouseButton1Click:Connect(function() SetTheme("Dark") end)
+    btnBlood.MouseButton1Click:Connect(function() SetTheme("Blood") end)
+    btnOcean.MouseButton1Click:Connect(function() SetTheme("Ocean") end)
+    btnMid.MouseButton1Click:Connect(function() SetTheme("Midnight") end)
+
+    CreateLabel(vSetts, "Полезные Утилиты (Оптимизация)", 4)
     CreateToggleWithBind(vSetts, "🛡️ Anti-AFK (Анти-кик)", "Setts_AntiAFK", false, function(state)
         -- Обрабатывается в global loop
-    end)
+    end, 5)
     
-    player.Idled:Connect(function()
-        if mySetts.toggles["🛡️ Anti-AFK (Анти-кик)"] then
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton2(Vector2.new())
-        end
-    end)
-
     local fpsBoosterConn
     CreateToggleWithBind(vSetts, "🥔 FPS Booster (Potato Mode)", "Setts_FPS", false, function(state)
         if state then
@@ -1636,7 +1767,32 @@ do
             if fpsBoosterConn then fpsBoosterConn:Disconnect() fpsBoosterConn = nil end
             showNotice("FPS Booster отключен (новые карты будут с текстурами).")
         end
-    end)
+    end, 6)
+
+    CreateToggleWithBind(vSetts, "🚫 Убрать Gameplay Paused (Визуал)", "Setts_NoPaused", false, function(state)
+        _G.NoGameplayPaused = state
+        if state then
+            task.spawn(function()
+                while _G.NoGameplayPaused do
+                    task.wait(0.2)
+                    pcall(function()
+                        local cg = game:GetService("CoreGui")
+                        if cg and cg:FindFirstChild("RobloxGui") then
+                            local gp = cg.RobloxGui:FindFirstChild("GameplayPausedGui")
+                            if gp and gp.Enabled then
+                                gp.Enabled = false
+                            end
+                        end
+                        for _, v in ipairs(game:GetService("Lighting"):GetChildren()) do
+                            if v:IsA("BlurEffect") and v.Name == "GameplayPausedBlur" then
+                                v:Destroy()
+                            end
+                        end
+                    end)
+                end
+            end)
+        end
+    end, 7)
     
     CreateActionRow(vSetts, "FOV (по умолч. 70)", "Установить FOV", function(val)
         local fov = tonumber(val)
@@ -1649,7 +1805,7 @@ do
         isFovEnabled = false
         workspace.CurrentCamera.FieldOfView = 70
         showNotice("FOV сброшен до 70")
-    end)
+    end, 8)
     
     CreateButton(vSetts, "🔓 Вернуть ShiftLock (Если отключен)", function()
         pcall(function()
@@ -1657,25 +1813,61 @@ do
             game:GetService("StarterPlayer").EnableMouseLockOption = true
             showNotice("ShiftLock разблокирован! Проверь настройки (ESC).")
         end)
-    end, Color3.fromRGB(40, 160, 60))
+    end, Color3.fromRGB(40, 160, 60), 9)
 
-    CreateLabel(vSetts, "Внешние Скрипты (Запуск)")
+    CreateLabel(vSetts, "Интерфейс", 10)
+    CreateToggleWithBind(vSetts, "Показывать Watermark", "Setts_Watermark", true, function(state)
+        mySetts.showWatermark = state
+        if watermark then watermark.Visible = state end
+        saveData()
+    end, 11)
+
+    CreateToggleWithBind(vSetts, "✅ Радужный логотип", "Setts_Rainbow", mySetts.rainbow, function(state)
+        mySetts.rainbow = state
+        if not mySetts.rainbow then 
+            if logoLabel then logoLabel.TextColor3 = Color3.fromRGB(220, 100, 60) end 
+            if wmText then wmText.TextColor3 = Color3.fromRGB(220, 220, 220) end
+        end 
+        saveData()
+    end, 12)
+
+    CreateLabel(vSetts, "Внешние Скрипты (Запуск)", 13)
     
     CreateButton(vSetts, "🎯 KutomAimbot (Не для MM2)", function()
         pcall(function()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/Egorzq/KutomHub/refs/heads/main/KutomAimbot"))()
             showNotice("KutomAimbot запущен!")
         end)
-    end, Color3.fromRGB(150, 50, 200))
+    end, Color3.fromRGB(150, 50, 200), 14)
 
-    CreateButton(vSetts, "👻 Включить Невидимость", function()
+    CreateButton(vSetts, "🌪️ KutomFling (Летать и сбивать)", function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Egorzq/KutomHub/refs/heads/main/Simple-KutomFling"))()
+            showNotice("KutomFling запущен!")
+        end)
+    end, Color3.fromRGB(180, 80, 40), 15)
+
+    local invisRow = make("Frame", {Size = UDim2.new(1, -10, 0, 34), BackgroundTransparency = 1, LayoutOrder = 16}, vSetts)
+    local invisBtn = make("TextButton", {Size = UDim2.new(1, -50, 1, 0), BackgroundColor3 = Color3.fromRGB(100, 150, 200), TextColor3 = Color3.fromRGB(255, 255, 255), Text = "👻 Внешняя Невидимость", Font = Enum.Font.GothamBold, TextSize = 12}, invisRow) addCorner(invisBtn, 6)
+    local invisBindBtn = make("TextButton", {Size = UDim2.new(0, 45, 1, 0), Position = UDim2.new(1, -45, 0, 0), BackgroundColor3 = Color3.fromRGB(35, 35, 45), Font = Enum.Font.GothamBold, TextSize = 11}, invisRow) addCorner(invisBindBtn, 6)
+    
+    setupBind(invisBindBtn, "Setts_InvisEx")
+
+    invisBtn.MouseButton1Click:Connect(function()
         pcall(function()
             loadstring(game:HttpGet('https://pastefy.app/6zjosppv/raw'))()
-            showNotice("Скрипт на невидимость запущен!")
+            showNotice("Внешний скрипт на невидимость запущен!")
         end)
-    end, Color3.fromRGB(100, 150, 200))
+    end)
+    
+    doInvisEx = function()
+        pcall(function()
+            loadstring(game:HttpGet('https://pastefy.app/6zjosppv/raw'))()
+            showNotice("Невидимость запущена по бинду!")
+        end)
+    end
 
-    CreateLabel(vSetts, "Конфиг (Файлы)")
+    CreateLabel(vSetts, "Конфиг (Файлы)", 17)
     CreateActionRow(vSetts, "Имя конфига...", "💾 Сохранить", function(val)
         if val ~= "" and writefile then
             pcall(function() writefile(val..".json", Http:JSONEncode({customAnims=customAnims, customPacks=customPacks, binds=binds, mySetts=mySetts, mm2Tracks=mm2Tracks, allTeleports=allTeleports})) end) showNotice("Конфиг "..val.." сохранен!")
@@ -1691,9 +1883,9 @@ do
                 end
             end)
         else showNotice("⚠️ Конфиг не найден!") end
-    end)
+    end, 18)
 
-    CreateLabel(vSetts, "Управление Сервером")
+    CreateLabel(vSetts, "Управление Сервером и Поиск Игроков", 19)
     CreateButton(vSetts, "🔄 Перезайти на сервер (Rejoin)", function()
         showNotice("Переподключение...")
         if #game:GetService("Players"):GetPlayers() <= 1 then
@@ -1701,7 +1893,7 @@ do
         else
             TPS:TeleportToPlaceInstance(game.PlaceId, game.JobId, player)
         end
-    end, Color3.fromRGB(180, 100, 40))
+    end, Color3.fromRGB(180, 100, 40), 20)
 
     CreateButton(vSetts, "🌐 Сменить сервер (Server Hop)", function()
         showNotice("Поиск нового сервера...")
@@ -1721,9 +1913,100 @@ do
             if #servers > 0 then TPS:TeleportToPlaceInstance(game.PlaceId, servers[math.random(1, #servers)], player)
             else showNotice("Не удалось найти другой сервер!") end
         end)
-    end, Color3.fromRGB(150, 50, 200))
+    end, Color3.fromRGB(150, 50, 200), 21)
 
-    CreateLabel(vSetts, "Визуал (Окружение)")
+    -- СНАЙПЕР ИГРОКОВ (ПОИСК СЕРВЕРА ПО НИКУ)
+    local function snipePlayer(targetName)
+        showNotice("🔍 Поиск " .. targetName .. " (жди 10-20 сек)...")
+        task.spawn(function()
+            local success, targetId = pcall(function() return Players:GetUserIdFromNameAsync(targetName) end)
+            if not success or not targetId then showNotice("⚠️ Игрок " .. targetName .. " не найден!") return end
+            
+            local reqFunc = request or http_request or (syn and syn.request) or (fluxus and fluxus.request)
+            if not reqFunc then
+                showNotice("⚠️ Твой экзекутор не поддерживает поиск (нужен HTTP Request)!")
+                return
+            end
+            
+            local thumbUrl = "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds="..targetId.."&size=150x150&format=Png&isCircular=false"
+            local thumbRes
+            pcall(function() thumbRes = Http:JSONDecode(game:HttpGet(thumbUrl)) end)
+            
+            if not thumbRes or not thumbRes.data or not thumbRes.data[1] then 
+                showNotice("⚠️ Не удалось получить аватар игрока!") 
+                return 
+            end
+            local targetImage = thumbRes.data[1].imageUrl
+
+            local cursor = ""
+            local foundServerId = nil
+            
+            for i = 1, 10 do
+                if foundServerId then break end
+                local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"
+                if cursor ~= "" then url = url .. "&cursor=" .. cursor end
+                
+                local res
+                pcall(function() res = Http:JSONDecode(game:HttpGet(url)) end)
+                if not res or not res.data then break end
+                
+                for _, server in ipairs(res.data) do
+                    if type(server) == "table" and server.playerTokens and #server.playerTokens > 0 and server.playing < server.maxPlayers then
+                        local reqBody = {}
+                        for _, token in ipairs(server.playerTokens) do
+                            table.insert(reqBody, {
+                                requestId = token,
+                                type = "AvatarHeadshot",
+                                targetId = 0,
+                                sessionId = "",
+                                size = "150x150",
+                                format = "png",
+                                isCircular = false
+                            })
+                        end
+                        
+                        local thumbCheck
+                        pcall(function()
+                            local r = reqFunc({
+                                Url = "https://thumbnails.roblox.com/v1/batch",
+                                Method = "POST",
+                                Headers = {["Content-Type"] = "application/json", ["Accept"] = "application/json"},
+                                Body = Http:JSONEncode(reqBody)
+                            })
+                            thumbCheck = Http:JSONDecode(r.Body)
+                        end)
+                        
+                        if thumbCheck and thumbCheck.data then
+                            for _, tokenData in ipairs(thumbCheck.data) do
+                                if tokenData.imageUrl == targetImage then
+                                    foundServerId = server.id
+                                    break
+                                end
+                            end
+                        end
+                    end
+                    if foundServerId then break end
+                end
+                cursor = res.nextPageCursor
+                if not cursor then break end
+            end
+            
+            if foundServerId then
+                showNotice("✅ Игрок найден! Подключаемся...")
+                TPS:TeleportToPlaceInstance(game.PlaceId, foundServerId, player)
+            else
+                showNotice("❌ Игрок не найден на открытых серверах.")
+            end
+        end)
+    end
+
+    CreateActionRow(vSetts, "Ник игрока для поиска (Snipe)...", "🔍 Найти и Зайти", function(val)
+        if val ~= "" then
+            snipePlayer(val)
+        end
+    end, nil, nil, 22)
+
+    CreateLabel(vSetts, "Визуал (Окружение)", 23)
     
     local origAmbient = Lighting.Ambient
     local origOutdoorAmbient = Lighting.OutdoorAmbient
@@ -1742,7 +2025,7 @@ do
             Lighting.OutdoorAmbient = origOutdoorAmbient
             Lighting.Brightness = origBrightness
         end
-    end)
+    end, 24)
 
     local playerLightConn
     CreateToggleWithBind(vSetts, "🔦 Свет только от игрока (Хоррор)", "Setts_PlayerLight", false, function(state)
@@ -1789,7 +2072,7 @@ do
             
             if playerLightConn then playerLightConn:Disconnect() playerLightConn = nil end
         end
-    end)
+    end, 25)
 
     CreateToggleWithBind(vSetts, "☀️ Fullbright (Яркий свет)", "Setts_Fullbright", false, function(state)
         if state then
@@ -1799,7 +2082,7 @@ do
             Lighting.Ambient = origAmbient Lighting.OutdoorAmbient = origOutdoorAmbient
             Lighting.Brightness = origBrightness Lighting.ClockTime = origClockTime Lighting.FogEnd = origFogEnd Lighting.GlobalShadows = origGlobalShadows
         end
-    end)
+    end, 26)
 
     CreateToggleWithBind(vSetts, "🌌 Ночное небо (Night Sky)", "Setts_NightSky", false, function(state)
         if state then
@@ -1822,7 +2105,7 @@ do
                 Lighting.KutomNightSky:Destroy()
             end
         end
-    end)
+    end, 27)
 
     CreateToggleWithBind(vSetts, "✨ Красивые шейдеры (RTX)", "Setts_Shaders", false, function(state)
         if state then
@@ -1838,19 +2121,18 @@ do
             if Lighting:FindFirstChild("KutomShadersSun") then Lighting.KutomShadersSun:Destroy() end
             if Lighting:FindFirstChild("KutomShadersBlur") then Lighting.KutomShadersBlur:Destroy() end
         end
-    end)
+    end, 28)
 
-    CreateToggleWithBind(vSetts, "✅ Радужный логотип", "Setts_Rainbow", mySetts.rainbow, function(state)
-        mySetts.rainbow = state
-        if not mySetts.rainbow then logoLabel.TextColor3 = Color3.fromRGB(220, 100, 60) end saveData()
-    end)
-
-    make("TextButton", {Size = UDim2.new(0, 90, 0, 25), BackgroundTransparency = 1, TextColor3 = Color3.fromRGB(65, 65, 80), Text = "By Kutom", Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left}, vSetts)
+    make("TextButton", {Size = UDim2.new(0, 90, 0, 25), BackgroundTransparency = 1, TextColor3 = Color3.fromRGB(65, 65, 80), Text = "By Kutom", Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 29}, vSetts)
 end
 
 -- ГЛОБАЛЬНАЯ Радуга
 RS.Heartbeat:Connect(function()
-    if mySetts.rainbow and logoLabel then logoLabel.TextColor3 = Color3.fromHSV(tick() % 5 / 5, 0.8, 1) end
+    if mySetts.rainbow then 
+        local col = Color3.fromHSV(tick() % 5 / 5, 0.8, 1)
+        if logoLabel then logoLabel.TextColor3 = col end 
+        if wmText then wmText.TextColor3 = col end
+    end
 end)
 
 switchTab("Emotes")

@@ -1,7 +1,6 @@
--- Kutom Coin Collector GUI
+-- Kutom Coin Collector GUI (Fixed Position Mode)
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
-local TweenService = game:GetService("TweenService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -61,9 +60,9 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -50, 1, 0)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "KUTOM COIN FARM"
+Title.Text = "KUTOM COIN FARM (STATIC)"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 15
+Title.TextSize = 14
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Header
@@ -102,7 +101,7 @@ Layout.Parent = Container
 -- Кнопка Вкл/Выкл автосбора
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Size = UDim2.new(1, 0, 0, 42)
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Красный по умолчанию (Выкл)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ToggleBtn.TextSize = 14
 ToggleBtn.Font = Enum.Font.GothamBold
@@ -114,7 +113,7 @@ local ToggleCorner = Instance.new("UICorner")
 ToggleCorner.CornerRadius = UDim.new(0, 8)
 ToggleCorner.Parent = ToggleBtn
 
--- Поле ввода задержки (скорости сбора)
+-- Поле ввода задержки
 local SpeedBox = Instance.new("TextBox")
 SpeedBox.Size = UDim2.new(1, 0, 0, 42)
 SpeedBox.BackgroundColor3 = Color3.fromRGB(22, 22, 34)
@@ -134,7 +133,7 @@ local BoxStroke = Instance.new("UIStroke")
 BoxStroke.Color = Color3.fromRGB(60, 60, 95)
 BoxStroke.Parent = SpeedBox
 
--- Статус текст снизу
+-- Статус текст
 local StatusLabel = Instance.new("TextLabel")
 StatusLabel.Size = UDim2.new(1, 0, 0, 30)
 StatusLabel.BackgroundTransparency = 1
@@ -145,22 +144,29 @@ StatusLabel.Font = Enum.Font.GothamMedium
 StatusLabel.LayoutOrder = 3
 StatusLabel.Parent = Container
 
--- Логика фарма монет
+-- Логика
 local collecting = false
 
 ToggleBtn.MouseButton1Click:Connect(function()
 	collecting = not collecting
+	local char = LocalPlayer.Character
+	local rootPart = char and char:FindFirstChild("HumanoidRootPart")
+	local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+	
 	if collecting then
 		ToggleBtn.Text = "Авто-сбор: ВКЛ"
-		ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 80) -- Зеленый
+		ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 80)
 	else
 		ToggleBtn.Text = "Авто-сбор: ВЫКЛ"
-		ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Красный
+		ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 		StatusLabel.Text = "Статус: Остановлено"
+		-- Возвращаем управление при выключении
+		if rootPart then rootPart.Anchored = false end
+		if humanoid then humanoid.PlatformStand = false end
 	end
 end)
 
--- Фоновый поток для сбора монет
+-- Фоновый поток сбора с фиксацией на месте
 task.spawn(function()
 	while ScreenGui.Parent do
 		if collecting then
@@ -172,16 +178,35 @@ task.spawn(function()
 				for _, coin in ipairs(coinsFolder:GetChildren()) do
 					if not collecting then break end
 					
-					if coin:IsA("BasePart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+					local char = LocalPlayer.Character
+					if char and char:FindFirstChild("HumanoidRootPart") then
+						local rootPart = char.HumanoidRootPart
+						local humanoid = char:FindFirstChildOfClass("Humanoid")
+						
 						foundAny = true
-						StatusLabel.Text = "Статус: Сбор монет..."
-						LocalPlayer.Character.HumanoidRootPart.CFrame = coin.CFrame + Vector3.new(0, 3, 0)
+						StatusLabel.Text = "Статус: Стоим в монете..."
+						
+						-- Телепортируемся к монете
+						rootPart.CFrame = coin.CFrame + Vector3.new(0, 3, 0)
+						
+						-- Фиксируем персонажа, чтобы он не мог двигаться и падать
+						rootPart.Anchored = true
+						if humanoid then humanoid.PlatformStand = true end
+						
 						task.wait(delayTime)
+						
+						-- Снимаем фиксацию перед перемещением к следующей монете
+						rootPart.Anchored = false
+						if humanoid then humanoid.PlatformStand = false end
 					end
 				end
 				
 				if not foundAny then
 					StatusLabel.Text = "Статус: Монеты не найдены / Ждем..."
+					local char = LocalPlayer.Character
+					if char and char:FindFirstChild("HumanoidRootPart") then
+						char.HumanoidRootPart.Anchored = false
+					end
 				end
 			else
 				StatusLabel.Text = "Статус: Папка 'Манеты' не найдена!"

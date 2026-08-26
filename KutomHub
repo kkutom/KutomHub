@@ -39,6 +39,10 @@ local origXrayTrans = {}
 local customFov = 70
 local isFovEnabled = false
 
+local isFreecam = false
+local freecamConn = nil
+local freecamSpeed = 2
+
 -- Функция определения ролей
 local function getRoleInfo(p)
     if mm2EarlyRoles[p.Name] then
@@ -195,7 +199,7 @@ local function toggleFly()
     end
 end
 
-local playAnim, doFastReset, doInvisEx
+local playAnim, doFastReset, doInvisEx, doKillMurderer
 
 -- GUI Инстанс
 local sgui = make("ScreenGui", {Name="SolaraKutomHub", ResetOnSpawn=false, IgnoreGuiInset=true})
@@ -368,6 +372,8 @@ UIS.InputBegan:Connect(function(inp, gp)
                     if doFastReset then doFastReset() end
                 elseif id == "Setts_InvisEx" then
                     if doInvisEx then doInvisEx() end
+                elseif id == "MM2_KillMurd" then
+                    if doKillMurderer then doKillMurderer() end
                 elseif string.sub(id, 1, 3) == "TP_" then 
                     local tName = string.sub(id, 4) 
                     if teleports[tName] then tpToPos(CFrame.new(unpack(teleports[tName].pos))) end 
@@ -458,91 +464,6 @@ local function CreateActionRow(page, inputHolder, btn1Txt, btn1Cb, btn2Txt, btn2
     else
         Inp.Size = UDim2.new(0.6, -5, 1, 0) Btn1.Size = UDim2.new(0.4, 0, 1, 0) Btn1.Position = UDim2.new(0.6, 5, 0, 0)
     end
-end
-
--- СНАЙПЕР ИГРОКОВ (ПОИСК СЕРВЕРА)
-local function snipePlayer(targetName)
-    showNotice("🔍 Поиск " .. targetName .. " (жди 10-20 сек)...")
-    task.spawn(function()
-        local success, targetId = pcall(function() return Players:GetUserIdFromNameAsync(targetName) end)
-        if not success or not targetId then showNotice("⚠️ Игрок " .. targetName .. " не найден!") return end
-        
-        local reqFunc = request or http_request or (syn and syn.request) or (fluxus and fluxus.request)
-        if not reqFunc then
-            showNotice("⚠️ Твой экзекутор не поддерживает поиск (нужен HTTP Request)!")
-            return
-        end
-        
-        local thumbUrl = "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds="..targetId.."&size=150x150&format=Png&isCircular=false"
-        local thumbRes
-        pcall(function() thumbRes = Http:JSONDecode(game:HttpGet(thumbUrl)) end)
-        
-        if not thumbRes or not thumbRes.data or not thumbRes.data[1] then 
-            showNotice("⚠️ Не удалось получить аватар игрока!") 
-            return 
-        end
-        local targetImage = thumbRes.data[1].imageUrl
-
-        local cursor = ""
-        local foundServerId = nil
-        
-        for i = 1, 10 do
-            if foundServerId then break end
-            local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"
-            if cursor ~= "" then url = url .. "&cursor=" .. cursor end
-            
-            local res
-            pcall(function() res = Http:JSONDecode(game:HttpGet(url)) end)
-            if not res or not res.data then break end
-            
-            for _, server in ipairs(res.data) do
-                if type(server) == "table" and server.playerTokens and #server.playerTokens > 0 and server.playing < server.maxPlayers then
-                    local reqBody = {}
-                    for _, token in ipairs(server.playerTokens) do
-                        table.insert(reqBody, {
-                            requestId = token,
-                            type = "AvatarHeadshot",
-                            targetId = 0,
-                            sessionId = "",
-                            size = "150x150",
-                            format = "png",
-                            isCircular = false
-                        })
-                    end
-                    
-                    local thumbCheck
-                    pcall(function()
-                        local r = reqFunc({
-                            Url = "https://thumbnails.roblox.com/v1/batch",
-                            Method = "POST",
-                            Headers = {["Content-Type"] = "application/json", ["Accept"] = "application/json"},
-                            Body = Http:JSONEncode(reqBody)
-                        })
-                        thumbCheck = Http:JSONDecode(r.Body)
-                    end)
-                    
-                    if thumbCheck and thumbCheck.data then
-                        for _, tokenData in ipairs(thumbCheck.data) do
-                            if tokenData.imageUrl == targetImage then
-                                foundServerId = server.id
-                                break
-                            end
-                        end
-                    end
-                end
-                if foundServerId then break end
-            end
-            cursor = res.nextPageCursor
-            if not cursor then break end
-        end
-        
-        if foundServerId then
-            showNotice("✅ Игрок найден! Подключаемся...")
-            TPS:TeleportToPlaceInstance(game.PlaceId, foundServerId, player)
-        else
-            showNotice("❌ Игрок не найден на открытых серверах.")
-        end
-    end)
 end
 
 -- ТЕМЫ ОФОРМЛЕНИЯ
@@ -937,9 +858,9 @@ end
 
 -- ================== 3. MM2 ЧИТЫ И ТРЕКИ ==================
 do
-    CreateLabel(vMm2, "Маньяк и Шериф (ТП и Моды)")
+    CreateLabel(vMm2, "Маньяк и Шериф (ТП и Моды)", 1)
     
-    local mm2Tps = make("Frame", {Size = UDim2.new(1, -10, 0, 35), BackgroundTransparency = 1}, vMm2)
+    local mm2Tps = make("Frame", {Size = UDim2.new(1, -10, 0, 35), BackgroundTransparency = 1, LayoutOrder = 2}, vMm2)
     local btnM = make("TextButton", {Size = UDim2.new(0.48, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(180, 50, 50), Text = "ТП к Маньяку", TextColor3 = Color3.fromRGB(255,255,255), Font = Enum.Font.GothamBold, TextSize = 12}, mm2Tps) addCorner(btnM, 6)
     local btnS = make("TextButton", {Size = UDim2.new(0.48, 0, 1, 0), Position = UDim2.new(0.52, 0, 0, 0), BackgroundColor3 = Color3.fromRGB(50, 100, 180), Text = "ТП к Шерифу", TextColor3 = Color3.fromRGB(255,255,255), Font = Enum.Font.GothamBold, TextSize = 12}, mm2Tps) addCorner(btnS, 6)
 
@@ -968,17 +889,63 @@ do
 
     CreateToggleWithBind(vMm2, "🎯 Auto Shoot (Если ты Шериф)", "MM2_AutoShoot", false, function(state)
         isAutoShoot = state
-    end)
+    end, 3)
+
+    local fKillCont = make("Frame", {Size = UDim2.new(1, -10, 0, 34), BackgroundTransparency = 1, LayoutOrder = 3.5}, vMm2)
+    local killBtn = make("TextButton", {Size = UDim2.new(1, -50, 1, 0), BackgroundColor3 = Color3.fromRGB(180, 40, 40), TextColor3 = Color3.fromRGB(255, 255, 255), Text = "🎯 Убить Маньяка (Авто-выстрел)", Font = Enum.Font.GothamBold, TextSize = 12}, fKillCont) addCorner(killBtn, 6)
+    local killBindBtn = make("TextButton", {Size = UDim2.new(0, 45, 1, 0), Position = UDim2.new(1, -45, 0, 0), BackgroundColor3 = Color3.fromRGB(35, 35, 45), Font = Enum.Font.GothamBold, TextSize = 11}, fKillCont) addCorner(killBindBtn, 6)
+    
+    setupBind(killBindBtn, "MM2_KillMurd")
+
+    doKillMurderer = function()
+        local char = player.Character
+        if not char then return end
+
+        local myGun = char:FindFirstChild("Gun") or char:FindFirstChild("Revolver")
+        if not myGun then
+            showNotice("⚠️ ВОЗЬМИ ПИСТОЛЕТ В РУКИ!")
+            return
+        end
+
+        local shootEvent = myGun:FindFirstChild("Shoot")
+        if not shootEvent or not shootEvent:IsA("RemoteEvent") then
+            showNotice("⚠️ РЕМОУТ SHOOT НЕ НАЙДЕН!")
+            return
+        end
+
+        local murd = nil
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+                if p.Character:FindFirstChild("Knife") or (p.Backpack and p.Backpack:FindFirstChild("Knife")) then
+                    murd = p.Character
+                    break
+                end
+            end
+        end
+
+        if not murd or not murd:FindFirstChild("Head") then
+            showNotice("⚠️ МАНЬЯК НЕ НАЙДЕН ИЛИ МЕРТВ!")
+            return
+        end
+
+        pcall(function()
+            local startCFrame = CFrame.lookAt(myGun.Handle.Position, murd.Head.Position)
+            local hitCFrame = CFrame.new(murd.Head.Position)
+            shootEvent:FireServer(startCFrame, hitCFrame)
+            showNotice("💥 ВЫСТРЕЛ ОТПРАВЛЕН В ГОЛОВУ!")
+        end)
+    end
+    killBtn.MouseButton1Click:Connect(doKillMurderer)
 
     CreateToggleWithBind(vMm2, "🎯 Silent Aim (Хитбокс / Магнит)", "MM2_SilentAim", false, function(state)
         isSilentAim = state
-    end)
+    end, 4)
 
     CreateToggleWithBind(vMm2, "💀 Kill Aura (Маньяк)", "MM2_KillAura", false, function(state)
         isKillAura = state
-    end)
+    end, 5)
 
-    CreateLabel(vMm2, "Визуал ESP и Полезное")
+    CreateLabel(vMm2, "Визуал ESP и Полезное", 6)
     
     CreateToggleWithBind(vMm2, "👁️ X-Ray (Wallhack на карту)", "MM2_XRay", false, function(state)
         isXRay = state
@@ -995,7 +962,7 @@ do
             end
             origXrayTrans = {}
         end
-    end)
+    end, 7)
 
     workspace.DescendantAdded:Connect(function(v)
         if isXRay and v:IsA("BasePart") and not v.Parent:FindFirstChild("Humanoid") then
@@ -1014,28 +981,28 @@ do
                 end
             end
         end 
-    end)
+    end, 8)
 
     CreateToggleWithBind(vMm2, "Gun Drop ESP", false, false, function(state)
         isGunEsp = state 
         if not isGunEsp then 
             for _, d in ipairs(workspace:GetDescendants()) do if d.Name == "KutomGunHL" or d.Name == "KutomGunBG" then d:Destroy() end end
         end 
-    end)
+    end, 9)
 
-    CreateToggleWithBind(vMm2, "Автоподбор пистолета", false, false, function(state) isAutoGrab = state end)
+    CreateToggleWithBind(vMm2, "Автоподбор пистолета", false, false, function(state) isAutoGrab = state end, 10)
 
-    CreateLabel(vMm2, "Визуал Прицела")
+    CreateLabel(vMm2, "Визуал Прицела", 11)
     local isCrosshair = false
     local customCrosshair = make("Frame", {Size = UDim2.new(0, 6, 0, 6), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.fromRGB(255, 255, 255), ZIndex = 100000, Visible = false}, sgui) addCorner(customCrosshair, 4) addStroke(customCrosshair, Color3.fromRGB(0, 0, 0), 1)
 
     CreateToggleWithBind(vMm2, "Радужный прицел", false, false, function(state)
         isCrosshair = state
         if not isCrosshair then UIS.MouseIconEnabled = true customCrosshair.Visible = false end
-    end)
+    end, 12)
 
-    CreateLabel(vMm2, "Менеджер Треков (Радио)")
-    local mm2TrackScroll = make("ScrollingFrame", {Size = UDim2.new(1, -10, 0, 180), BackgroundColor3 = Color3.fromRGB(20, 20, 26), BorderSizePixel = 0, ScrollBarThickness = 3, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(0,0,0,0)}, vMm2)
+    CreateLabel(vMm2, "Менеджер Треков (Радио)", 13)
+    local mm2TrackScroll = make("ScrollingFrame", {Size = UDim2.new(1, -10, 0, 180), BackgroundColor3 = Color3.fromRGB(20, 20, 26), BorderSizePixel = 0, ScrollBarThickness = 3, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(0,0,0,0), LayoutOrder = 14}, vMm2)
     addCorner(mm2TrackScroll, 6) make("UIListLayout", {Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder}, mm2TrackScroll)
 
     local function renderMm2Tracks()
@@ -1055,8 +1022,8 @@ do
     end
     renderMm2Tracks()
 
-    local trNameInp = CreateTextBox(vMm2, "Название (пусто = авто)")
-    local trIdInp = CreateTextBox(vMm2, "Sound ID трека...")
+    local trNameInp = CreateTextBox(vMm2, "Название (пусто = авто)", "", 15)
+    local trIdInp = CreateTextBox(vMm2, "Sound ID трека...", "", 16)
     CreateButton(vMm2, "➕ Добавить / Переименовать Трек", function()
         local rawId = string.match(trIdInp.Text, "%d+")
         if rawId then
@@ -1072,8 +1039,8 @@ do
             if not exists then table.insert(mm2Tracks, {name = finalName, id = rawId}) end
             saveData() renderMm2Tracks() trNameInp.Text = "" trIdInp.Text = "" showNotice(exists and "Трек переименован!" or "Трек добавлен!")
         else showNotice("⚠️ Введите корректный Sound ID!") end
-    end, Color3.fromRGB(40, 160, 60))
-    CreateToggleWithBind(vMm2, "Авто-плей трека после смерти", false, mySetts.autoPlaySong, function(state) mySetts.autoPlaySong = state saveData() end)
+    end, Color3.fromRGB(40, 160, 60), 17)
+    CreateToggleWithBind(vMm2, "Авто-плей трека после смерти", false, mySetts.autoPlaySong, function(state) mySetts.autoPlaySong = state saveData() end, 18)
 
     task.spawn(function()
         while task.wait(1) do
@@ -1332,9 +1299,21 @@ do
         mySetts.targetJump = 50 saveData() if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then player.Character:FindFirstChildOfClass("Humanoid").UseJumpPower = true player.Character:FindFirstChildOfClass("Humanoid").JumpPower = 50 end
     end)
 
-    CreateLabel(vVip, "Чит-моды")
+    CreateLabel(vVip, "Гравитация (Мир)", 4)
+    CreateActionRow(vVip, "Гравитация (умолч 196.2)", "Применить", function(val)
+        local n = tonumber(val)
+        if n then
+            workspace.Gravity = n
+            showNotice("Гравитация: " .. n)
+        end
+    end, "Сброс", function()
+        workspace.Gravity = 196.2
+        showNotice("Гравитация сброшена")
+    end, 5)
 
-    local flyBindCont = make("Frame", {Size = UDim2.new(1, -10, 0, 34), BackgroundTransparency = 1}, vVip)
+    CreateLabel(vVip, "Чит-моды", 6)
+
+    local flyBindCont = make("Frame", {Size = UDim2.new(1, -10, 0, 34), BackgroundTransparency = 1, LayoutOrder = 7}, vVip)
     local flyBtnObj = make("TextButton", {Size = UDim2.new(1, -50, 1, 0), BackgroundColor3 = Color3.fromRGB(40, 120, 200), TextColor3 = Color3.fromRGB(255, 255, 255), Text = "Полет", Font = Enum.Font.GothamBold, TextSize = 12}, flyBindCont) addCorner(flyBtnObj, 6)
     local flyBindBtn = make("TextButton", {Size = UDim2.new(0, 45, 1, 0), Position = UDim2.new(1, -45, 0, 0), BackgroundColor3 = Color3.fromRGB(35, 35, 45), Font = Enum.Font.GothamBold, TextSize = 11}, flyBindCont) addCorner(flyBindBtn, 6)
     
@@ -1360,7 +1339,7 @@ do
         mySetts.flySpeed = 50
         saveData()
         showNotice("Сброшено до 50")
-    end)
+    end, 8)
 
     local noclipConn
     CreateToggleWithBind(vVip, "Noclip", false, false, function(state)
@@ -1373,15 +1352,15 @@ do
         else
             if noclipConn then noclipConn:Disconnect() noclipConn = nil end
         end
-    end)
+    end, 9)
 
     local isInfJump = false
-    CreateToggleWithBind(vVip, "Бесконечный прыжок", false, false, function(state) isInfJump = state end)
+    CreateToggleWithBind(vVip, "Бесконечный прыжок", false, false, function(state) isInfJump = state end, 10)
     UIS.JumpRequest:Connect(function() 
         if isInfJump and player.Character then local h = player.Character:FindFirstChildOfClass("Humanoid") if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end end 
     end)
 
-    CreateToggleWithBind(vVip, "🛡️ Anti-Fling (Защита от флинга)", "VIP_AntiFling", false, function(state) isAntiFling = state end)
+    CreateToggleWithBind(vVip, "🛡️ Anti-Fling (Защита от флинга)", "VIP_AntiFling", false, function(state) isAntiFling = state end, 11)
     RS.Stepped:Connect(function()
         if isAntiFling then
             pcall(function()
@@ -1401,7 +1380,7 @@ do
         end
     end)
 
-    CreateLabel(vVip, "Взаимодействие с Игроками")
+    CreateLabel(vVip, "Взаимодействие с Игроками", 12)
     CreateActionRow(vVip, "Ник игрока...", "Телепорт к Игроку", function(val)
         local tName = val:lower() local t = nil
         for _, p in ipairs(Players:GetPlayers()) do
@@ -1410,7 +1389,7 @@ do
         if t and t.Character and t.Character:FindFirstChild("HumanoidRootPart") and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             player.Character.HumanoidRootPart.CFrame = t.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3) showNotice("Телепорт к " .. t.Name)
         else showNotice("⚠️ Игрок не найден!") end
-    end)
+    end, nil, nil, 13)
 end
 
 -- ================== 5. TOOLS (ИНСТРУМЕНТЫ) ==================
@@ -1716,6 +1695,42 @@ do
         isFakeGodMode = state 
     end, 19)
 
+    CreateLabel(vOther, "Кинематографичная Камера", 20)
+    
+    CreateToggleWithBind(vOther, "🎥 Свободная Камера (Freecam)", "Other_Freecam", false, function(state)
+        isFreecam = state
+        local cam = workspace.CurrentCamera
+        if isFreecam then
+            cam.CameraType = Enum.CameraType.Scriptable
+            freecamConn = RS.RenderStepped:Connect(function()
+                local mv = Vector3.new()
+                if UIS:IsKeyDown(Enum.KeyCode.W) then mv = mv + cam.CFrame.LookVector end
+                if UIS:IsKeyDown(Enum.KeyCode.S) then mv = mv - cam.CFrame.LookVector end
+                if UIS:IsKeyDown(Enum.KeyCode.A) then mv = mv - cam.CFrame.RightVector end
+                if UIS:IsKeyDown(Enum.KeyCode.D) then mv = mv + cam.CFrame.RightVector end
+                if UIS:IsKeyDown(Enum.KeyCode.E) then mv = mv + Vector3.new(0, 1, 0) end
+                if UIS:IsKeyDown(Enum.KeyCode.Q) then mv = mv - Vector3.new(0, 1, 0) end
+                if mv.Magnitude > 0 then
+                    cam.CFrame = cam.CFrame + (mv.Unit * freecamSpeed)
+                end
+            end)
+            showNotice("Свободная камера включена!")
+        else
+            if freecamConn then freecamConn:Disconnect() freecamConn = nil end
+            cam.CameraType = Enum.CameraType.Custom
+            if player.Character and player.Character:FindFirstChild("Humanoid") then
+                cam.CameraSubject = player.Character.Humanoid
+            end
+            showNotice("Камера возвращена!")
+        end
+    end, 21)
+
+    local fCamSpeedInp = CreateTextBox(vOther, "Скор. Freecam (умолч. 2)", "2", 22)
+    fCamSpeedInp.FocusLost:Connect(function()
+        local n = tonumber(fCamSpeedInp.Text)
+        if n then freecamSpeed = n showNotice("Скор. Freecam: " .. n) end
+    end)
+
 end
 
 -- ================== 7. НАСТРОЙКИ И КОНФИГИ ==================
@@ -1885,7 +1900,7 @@ do
         else showNotice("⚠️ Конфиг не найден!") end
     end, 18)
 
-    CreateLabel(vSetts, "Управление Сервером и Поиск Игроков", 19)
+    CreateLabel(vSetts, "Управление Сервером и Снайпер", 19)
     CreateButton(vSetts, "🔄 Перезайти на сервер (Rejoin)", function()
         showNotice("Переподключение...")
         if #game:GetService("Players"):GetPlayers() <= 1 then
@@ -2123,7 +2138,15 @@ do
         end
     end, 28)
 
-    make("TextButton", {Size = UDim2.new(0, 90, 0, 25), BackgroundTransparency = 1, TextColor3 = Color3.fromRGB(65, 65, 80), Text = "By Kutom", Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 29}, vSetts)
+    CreateButton(vSetts, "🔭 Отвязать лимиты отдаления (Unbound Zoom)", function()
+        pcall(function()
+            player.CameraMaxZoomDistance = 100000
+            player.CameraMinZoomDistance = 0.5
+            showNotice("Лимиты зума сняты!")
+        end)
+    end, Color3.fromRGB(40, 120, 200), 29)
+
+    make("TextButton", {Size = UDim2.new(0, 90, 0, 25), BackgroundTransparency = 1, TextColor3 = Color3.fromRGB(65, 65, 80), Text = "By Kutom", Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 30}, vSetts)
 end
 
 -- ГЛОБАЛЬНАЯ Радуга

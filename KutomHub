@@ -1,4 +1,4 @@
-local AutoExecuteURL = "" -- ВСТАВЬ СЮДА СВОЮ RAW-ССЫЛКУ С GITHUB ДЛЯ АВТОЗАПУСКА ПРИ ПЕРЕЗАХОДЕ
+local AutoExecuteURL = ""
 
 local unpack = unpack or table.unpack
 

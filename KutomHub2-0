@@ -1,0 +1,1519 @@
+--Если ты это читаешь то ты пидор ебаный который портит все веселье и смотрит код
+--Пиздуй отсюда
+
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local AssetService = game:GetService("AssetService")
+local AvatarEditorService = game:GetService("AvatarEditorService")
+local HttpService = game:GetService("HttpService")
+
+local player = Players.LocalPlayer
+
+-- Clean up previous GUI if exists
+if CoreGui:FindFirstChild("CustomHubModern") then
+    CoreGui.CustomHubModern:Destroy()
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "CustomHubModern"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = CoreGui
+
+-- ================== СИСТЕМА СОХРАНЕНИЯ И ЗАГРУЗКИ ==================
+local saveFileName = "KutomHub2_SaveData.json"
+local savedEmotesEmotesTab = {}
+local savedPacksMovementsTab = {}
+
+local function saveData()
+    pcall(function()
+        local dataToSave = { emotes = {}, packs = {} }
+        for _, em in ipairs(savedEmotesEmotesTab) do
+            table.insert(dataToSave.emotes, {
+                name = em.name,
+                assetId = em.assetId,
+                keybind = em.keybind and em.keybind.Name or nil
+            })
+        end
+        for _, pk in ipairs(savedPacksMovementsTab) do
+            table.insert(dataToSave.packs, {
+                name = pk.name,
+                bundleId = pk.bundleId
+            })
+        end
+        if writefile then
+            writefile(saveFileName, HttpService:JSONEncode(dataToSave))
+        end
+    end)
+end
+
+local function loadData()
+    pcall(function()
+        if readfile and isfile and isfile(saveFileName) then
+            local raw = readfile(saveFileName)
+            local data = HttpService:JSONDecode(raw)
+            if data then
+                if data.emotes then
+                    for _, em in ipairs(data.emotes) do
+                        table.insert(savedEmotesEmotesTab, {
+                            name = em.name,
+                            assetId = em.assetId,
+                            keybind = em.keybind and Enum.KeyCode[em.keybind] or nil
+                        })
+                    end
+                end
+                if data.packs then
+                    for _, pk in ipairs(data.packs) do
+                        table.insert(savedPacksMovementsTab, {
+                            name = pk.name,
+                            bundleId = pk.bundleId
+                        })
+                    end
+                end
+            end
+        end
+    end)
+end
+
+loadData()
+
+-- Notification Toast (Bottom Screen Popup)
+local ToastFrame = Instance.new("Frame")
+ToastFrame.Name = "ToastFrame"
+ToastFrame.Size = UDim2.new(0, 320, 0, 45)
+ToastFrame.Position = UDim2.new(0.5, -160, 1, 60)
+ToastFrame.AnchorPoint = Vector2.new(0.5, 0)
+ToastFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 48)
+ToastFrame.BorderSizePixel = 0
+ToastFrame.ZIndex = 100
+ToastFrame.Parent = ScreenGui
+
+local ToastCorner = Instance.new("UICorner")
+ToastCorner.CornerRadius = UDim.new(0, 8)
+ToastCorner.Parent = ToastFrame
+
+local ToastLabel = Instance.new("TextLabel")
+ToastLabel.Size = UDim2.new(1, 0, 1, 0)
+ToastLabel.BackgroundTransparency = 1
+ToastLabel.Font = Enum.Font.GothamMedium
+ToastLabel.Text = ""
+ToastLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToastLabel.TextSize = 13
+ToastLabel.ZIndex = 101
+ToastLabel.Parent = ToastFrame
+
+local function showNotification(message, isError)
+    ToastLabel.Text = message
+    ToastFrame.BackgroundColor3 = isError and Color3.fromRGB(180, 50, 50) or Color3.fromRGB(40, 40, 48)
+    
+    local tweenIn = TweenService:Create(ToastFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, -160, 1, -70)})
+    tweenIn:Play()
+    
+    task.delay(2.5, function()
+        local tweenOut = TweenService:Create(ToastFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Position = UDim2.new(0.5, -160, 1, 60)})
+        tweenOut:Play()
+    end)
+end
+
+-- Main Frame (Fullscreen with margins, unmovable, smooth toggle)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(1, -200, 1, -120)
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = false
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 12)
+MainCorner.Parent = MainFrame
+
+-- ================== МОБИЛЬНАЯ КНОПКА СВОРАЧИВАНИЯ (FLOATING TOGGLE BUTTON) ==================
+local FloatingBtn = Instance.new("TextButton")
+FloatingBtn.Name = "FloatingOpenBtn"
+FloatingBtn.Size = UDim2.new(0, 50, 0, 50)
+FloatingBtn.Position = UDim2.new(0, 20, 0.5, -25)
+FloatingBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
+FloatingBtn.Font = Enum.Font.GothamBold
+FloatingBtn.Text = "KH"
+FloatingBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+FloatingBtn.TextSize = 16
+FloatingBtn.Visible = false -- Скрыта по умолчанию, когда Hub открыт
+FloatingBtn.ZIndex = 200
+FloatingBtn.Draggable = true -- На телефонах можно перетаскивать куда удобно
+FloatingBtn.Parent = ScreenGui
+Instance.new("UICorner", FloatingBtn).CornerRadius = UDim.new(0, 25)
+
+-- Top Bar
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 50)
+TopBar.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+TopBar.BorderSizePixel = 0
+TopBar.Parent = MainFrame
+
+local TopBarCorner = Instance.new("UICorner")
+TopBarCorner.CornerRadius = UDim.new(0, 12)
+TopBarCorner.Parent = TopBar
+
+local TopBarCover = Instance.new("Frame")
+TopBarCover.Size = UDim2.new(1, 0, 0, 12)
+TopBarCover.Position = UDim2.new(0, 0, 1, -12)
+TopBarCover.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+TopBarCover.BorderSizePixel = 0
+TopBarCover.Parent = TopBar
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(0, 250, 1, 0)
+TitleLabel.Position = UDim2.new(0, 20, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Text = "KutomHub 2.0"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextSize = 18
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = TopBar
+
+-- Minimize (Collapse) Button for Mobile / PC
+local MinimizeBtn = Instance.new("TextButton")
+MinimizeBtn.Size = UDim2.new(0, 36, 0, 36)
+MinimizeBtn.Position = UDim2.new(1, -85, 0.5, -18)
+MinimizeBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+MinimizeBtn.Font = Enum.Font.GothamBold
+MinimizeBtn.Text = "-"
+MinimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinimizeBtn.TextSize = 18
+MinimizeBtn.Parent = TopBar
+Instance.new("UICorner", MinimizeBtn).CornerRadius = UDim.new(0, 8)
+
+-- Close Button
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 36, 0, 36)
+CloseBtn.Position = UDim2.new(1, -45, 0.5, -18)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextSize = 16
+CloseBtn.Parent = TopBar
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 8)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- Логика сворачивания / разворачивания с анимацией
+local isOpen = true
+local isTweening = false
+
+local function toggleHubVisibility()
+    if isTweening then return end
+    isTweening = true
+    isOpen = not isOpen
+    
+    local tweenInfo = TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+    local targetPos = isOpen and UDim2.new(0.5, 0, 0.5, 0) or UDim2.new(0.5, 0, 1.5, 0)
+    
+    local tween = TweenService:Create(MainFrame, tweenInfo, {Position = targetPos})
+    tween:Play()
+    
+    tween.Completed:Connect(function()
+        isTweening = false
+        if not isOpen then
+            MainFrame.Visible = false
+            FloatingBtn.Visible = true
+        end
+    end)
+
+    if isOpen then
+        FloatingBtn.Visible = false
+        MainFrame.Visible = true
+    end
+end
+
+MinimizeBtn.MouseButton1Click:Connect(toggleHubVisibility)
+FloatingBtn.MouseButton1Click:Connect(toggleHubVisibility)
+
+-- Main Category Bar (Simple, Emotes, Movements, Brookhaven)
+local CategoryBar = Instance.new("Frame")
+CategoryBar.Size = UDim2.new(1, -40, 0, 40)
+CategoryBar.Position = UDim2.new(0, 20, 0, 60)
+CategoryBar.BackgroundTransparency = 1
+CategoryBar.Parent = MainFrame
+
+local function createCategoryBtn(name, posX)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 110, 1, 0)
+    btn.Position = UDim2.new(0, posX, 0, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = name
+    btn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    btn.TextSize = 13
+    btn.Parent = CategoryBar
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = btn
+    return btn
+end
+
+local SimpleCatBtn = createCategoryBtn("Simple", 0)
+local EmotesCatBtn = createCategoryBtn("Emotes", 120)
+local MovementsCatBtn = createCategoryBtn("Movements", 240)
+local BrookhavenCatBtn = createCategoryBtn("Brookhaven", 360)
+
+SimpleCatBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
+SimpleCatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+-- Content Panels
+local SimplePanel = Instance.new("ScrollingFrame")
+SimplePanel.Size = UDim2.new(1, -40, 1, -115)
+SimplePanel.Position = UDim2.new(0, 20, 0, 110)
+SimplePanel.BackgroundTransparency = 1
+SimplePanel.BorderSizePixel = 0
+SimplePanel.CanvasSize = UDim2.new(0, 0, 0, 680)
+SimplePanel.ScrollBarThickness = 6
+SimplePanel.Visible = true
+SimplePanel.Parent = MainFrame
+
+local EmotesPanel = Instance.new("Frame")
+EmotesPanel.Size = UDim2.new(1, -40, 1, -115)
+EmotesPanel.Position = UDim2.new(0, 20, 0, 110)
+EmotesPanel.BackgroundTransparency = 1
+EmotesPanel.Visible = false
+EmotesPanel.Parent = MainFrame
+
+local MovementsPanel = Instance.new("Frame")
+MovementsPanel.Size = UDim2.new(1, -40, 1, -115)
+MovementsPanel.Position = UDim2.new(0, 20, 0, 110)
+MovementsPanel.BackgroundTransparency = 1
+MovementsPanel.Visible = false
+MovementsPanel.Parent = MainFrame
+
+local BrookhavenPanel = Instance.new("Frame")
+BrookhavenPanel.Size = UDim2.new(1, -40, 1, -115)
+BrookhavenPanel.Position = UDim2.new(0, 20, 0, 110)
+BrookhavenPanel.BackgroundTransparency = 1
+BrookhavenPanel.Visible = false
+BrookhavenPanel.Parent = MainFrame
+
+local function switchCategory(selected)
+    SimpleCatBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+    SimpleCatBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    EmotesCatBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+    EmotesCatBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    MovementsCatBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+    MovementsCatBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    BrookhavenCatBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+    BrookhavenCatBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+
+    SimplePanel.Visible = (selected == "Simple")
+    EmotesPanel.Visible = (selected == "Emotes")
+    MovementsPanel.Visible = (selected == "Movements")
+    BrookhavenPanel.Visible = (selected == "Brookhaven")
+
+    if selected == "Simple" then
+        SimpleCatBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
+        SimpleCatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    elseif selected == "Emotes" then
+        EmotesCatBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
+        EmotesCatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    elseif selected == "Movements" then
+        MovementsCatBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
+        MovementsCatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    elseif selected == "Brookhaven" then
+        BrookhavenCatBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
+        BrookhavenCatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    end
+end
+
+SimpleCatBtn.MouseButton1Click:Connect(function() switchCategory("Simple") end)
+EmotesCatBtn.MouseButton1Click:Connect(function() switchCategory("Emotes") end)
+MovementsCatBtn.MouseButton1Click:Connect(function() switchCategory("Movements") end)
+BrookhavenCatBtn.MouseButton1Click:Connect(function() switchCategory("Brookhaven") end)
+
+
+-- ================== 1. SIMPLE TAB ==================
+local flyEnabled, noclipEnabled, speedEnabled, jumpEnabled, espEnabled = false, false, false, false, false
+local flySpeed, targetWalkSpeed, targetJumpPower = 50, 50, 100
+local normalWalkSpeed, normalJumpPower = 16, 50
+local bodyVel, bodyGyro
+
+local function createToggleRow(name, posY, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 45)
+    frame.Position = UDim2.new(0, 0, 0, posY)
+    frame.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+    frame.BorderSizePixel = 0
+    frame.Parent = SimplePanel
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0, 300, 1, 0)
+    label.Position = UDim2.new(0, 15, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.GothamMedium
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    label.TextSize = 15
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+
+    local toggleBtn = Instance.new("TextButton")
+    toggleBtn.Size = UDim2.new(0, 70, 0, 28)
+    toggleBtn.Position = UDim2.new(1, -85, 0.5, -14)
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    toggleBtn.Font = Enum.Font.GothamBold
+    toggleBtn.Text = "OFF"
+    toggleBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    toggleBtn.TextSize = 13
+    toggleBtn.Parent = frame
+
+    local tCorner = Instance.new("UICorner")
+    tCorner.CornerRadius = UDim.new(0, 6)
+    tCorner.Parent = toggleBtn
+
+    local state = false
+    toggleBtn.MouseButton1Click:Connect(function()
+        state = not state
+        if state then
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(60, 180, 90)
+            toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            toggleBtn.Text = "ON"
+        else
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+            toggleBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+            toggleBtn.Text = "OFF"
+        end
+        callback(state)
+    end)
+    return frame
+end
+
+local function createInputRow(name, posY, defaultVal, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 45)
+    frame.Position = UDim2.new(0, 0, 0, posY)
+    frame.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+    frame.BorderSizePixel = 0
+    frame.Parent = SimplePanel
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0, 300, 1, 0)
+    label.Position = UDim2.new(0, 15, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.GothamMedium
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    label.TextSize = 15
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+
+    local textBox = Instance.new("TextBox")
+    textBox.Size = UDim2.new(0, 100, 0, 28)
+    textBox.Position = UDim2.new(1, -115, 0.5, -14)
+    textBox.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+    textBox.Font = Enum.Font.Gotham
+    textBox.Text = tostring(defaultVal)
+    textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    textBox.TextSize = 13
+    textBox.ClearTextOnFocus = false
+    textBox.Parent = frame
+
+    local tCorner = Instance.new("UICorner")
+    tCorner.CornerRadius = UDim.new(0, 6)
+    tCorner.Parent = textBox
+
+    textBox.FocusLost:Connect(function()
+        local num = tonumber(textBox.Text)
+        if num then
+            callback(num)
+        else
+            textBox.Text = tostring(defaultVal)
+        end
+    end)
+    return frame
+end
+
+createToggleRow("Fly (Press E)", 0, function(state)
+    flyEnabled = state
+    local char = player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if flyEnabled then
+        if hum then hum.PlatformStand = true end
+        bodyVel = Instance.new("BodyVelocity")
+        bodyVel.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bodyVel.Velocity = Vector3.new(0, 0, 0)
+        bodyVel.Parent = root
+        bodyGyro = Instance.new("BodyGyro")
+        bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+        bodyGyro.CFrame = root.CFrame
+        bodyGyro.Parent = root
+    else
+        if hum then hum.PlatformStand = false end
+        if bodyVel then bodyVel:Destroy() end
+        if bodyGyro then bodyGyro:Destroy() end
+    end
+end)
+
+createInputRow("Fly Speed", 50, flySpeed, function(val) flySpeed = val end)
+createToggleRow("Noclip", 100, function(state) noclipEnabled = state end)
+createToggleRow("Speedhack", 150, function(state)
+    speedEnabled = state
+    local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+    if hum then hum.WalkSpeed = speedEnabled and targetWalkSpeed or normalWalkSpeed end
+end)
+createInputRow("Speed Value", 200, targetWalkSpeed, function(val)
+    targetWalkSpeed = val
+    if speedEnabled then
+        local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum.WalkSpeed = targetWalkSpeed end
+    end
+end)
+createToggleRow("JumpPower / Height", 250, function(state)
+    jumpEnabled = state
+    local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.UseJumpPower = true
+        hum.JumpPower = jumpEnabled and targetJumpPower or normalJumpPower
+    end
+end)
+createInputRow("Jump Height Value", 300, targetJumpPower, function(val)
+    targetJumpPower = val
+    if jumpEnabled then
+        local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum.JumpPower = targetJumpPower end
+    end
+end)
+
+local function updateEspForCharacter(char, enable)
+    if not char then return end
+    local hl = char:FindFirstChild("KutomHubESP")
+    if enable then
+        if not hl then
+            hl = Instance.new("Highlight")
+            hl.Name = "KutomHubESP"
+            hl.FillColor = Color3.fromRGB(0, 170, 255)
+            hl.FillTransparency = 0.5
+            hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+            hl.OutlineTransparency = 0
+            hl.Adornee = char
+            hl.Parent = char
+        end
+    else
+        if hl then
+            hl:Destroy()
+        end
+    end
+end
+
+createToggleRow("ESP (Wallhack)", 350, function(state)
+    espEnabled = state
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= player then
+            if espEnabled then
+                if p.Character then updateEspForCharacter(p.Character, true) end
+                p.CharacterAdded:Connect(function(newChar)
+                    if espEnabled then
+                        newChar:WaitForChild("HumanoidRootPart", 5)
+                        updateEspForCharacter(newChar, true)
+                    end
+                end)
+            else
+                if p.Character then updateEspForCharacter(p.Character, false) end
+            end
+        end
+    end
+end)
+
+Players.PlayerAdded:Connect(function(p)
+    if p ~= player then
+        p.CharacterAdded:Connect(function(newChar)
+            if espEnabled then
+                newChar:WaitForChild("HumanoidRootPart", 5)
+                updateEspForCharacter(newChar, true)
+            end
+        end)
+    end
+end)
+
+-- Телепорт к игроку
+local SimpleTpFrame = Instance.new("Frame")
+SimpleTpFrame.Size = UDim2.new(1, 0, 0, 45)
+SimpleTpFrame.Position = UDim2.new(0, 0, 0, 405)
+SimpleTpFrame.BackgroundTransparency = 1
+SimpleTpFrame.Parent = SimplePanel
+
+local SimpleTpBox = Instance.new("TextBox")
+SimpleTpBox.Size = UDim2.new(0.65, -5, 1, 0)
+SimpleTpBox.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+SimpleTpBox.PlaceholderText = "Enter player name..."
+SimpleTpBox.Text = ""
+SimpleTpBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+SimpleTpBox.Font = Enum.Font.Gotham
+SimpleTpBox.TextSize = 13
+SimpleTpBox.Parent = SimpleTpFrame
+Instance.new("UICorner", SimpleTpBox).CornerRadius = UDim.new(0, 6)
+
+local SimpleTpBtn = Instance.new("TextButton")
+SimpleTpBtn.Size = UDim2.new(0.35, 0, 1, 0)
+SimpleTpBtn.Position = UDim2.new(0.65, 5, 0, 0)
+SimpleTpBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
+SimpleTpBtn.Font = Enum.Font.GothamBold
+SimpleTpBtn.Text = "Teleport"
+SimpleTpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SimpleTpBtn.TextSize = 13
+SimpleTpBtn.Parent = SimpleTpFrame
+Instance.new("UICorner", SimpleTpBtn).CornerRadius = UDim.new(0, 6)
+
+SimpleTpBtn.MouseButton1Click:Connect(function()
+    local targetName = string.lower(SimpleTpBox.Text)
+    if targetName == "" then
+        showNotification("Введите ник игрока!", true)
+        return
+    end
+
+    local foundTarget = nil
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= player then
+            local pName = string.lower(p.Name)
+            local pDisplay = string.lower(p.DisplayName)
+            if string.sub(pName, 1, #targetName) == targetName or string.sub(pDisplay, 1, #targetName) == targetName then
+                foundTarget = p
+                break
+            end
+        end
+    end
+
+    if foundTarget and foundTarget.Character and foundTarget.Character:FindFirstChild("HumanoidRootPart") then
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            player.Character.HumanoidRootPart.CFrame = foundTarget.Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+            showNotification("Телепортировано к " .. foundTarget.Name, false)
+        end
+    else
+        showNotification("Игрок не найден!", true)
+    end
+end)
+
+-- Sword AutoAim
+local swordAutoAimEnabled = false
+local swordTargetName = ""
+
+local SwordAimFrame = Instance.new("Frame")
+SwordAimFrame.Size = UDim2.new(1, 0, 0, 45)
+SwordAimFrame.Position = UDim2.new(0, 0, 0, 460)
+SwordAimFrame.BackgroundTransparency = 1
+SwordAimFrame.Parent = SimplePanel
+
+local SwordAimBox = Instance.new("TextBox")
+SwordAimBox.Size = UDim2.new(0.5, -5, 1, 0)
+SwordAimBox.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+SwordAimBox.PlaceholderText = "Target name for Sword..."
+SwordAimBox.Text = ""
+SwordAimBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+SwordAimBox.Font = Enum.Font.Gotham
+SwordAimBox.TextSize = 13
+SwordAimBox.Parent = SwordAimFrame
+Instance.new("UICorner", SwordAimBox).CornerRadius = UDim.new(0, 6)
+
+SwordAimBox.FocusLost:Connect(function()
+    swordTargetName = string.lower(SwordAimBox.Text)
+end)
+
+local SwordAimToggle = Instance.new("TextButton")
+SwordAimToggle.Size = UDim2.new(0.5, -5, 1, 0)
+SwordAimToggle.Position = UDim2.new(0.5, 5, 0, 0)
+SwordAimToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+SwordAimToggle.Font = Enum.Font.GothamBold
+SwordAimToggle.Text = "Sword AutoAim: OFF"
+SwordAimToggle.TextColor3 = Color3.fromRGB(180, 180, 180)
+SwordAimToggle.TextSize = 12
+SwordAimToggle.Parent = SwordAimFrame
+Instance.new("UICorner", SwordAimToggle).CornerRadius = UDim.new(0, 6)
+
+SwordAimToggle.MouseButton1Click:Connect(function()
+    swordAutoAimEnabled = not swordAutoAimEnabled
+    swordTargetName = string.lower(SwordAimBox.Text)
+    if swordAutoAimEnabled then
+        SwordAimToggle.BackgroundColor3 = Color3.fromRGB(60, 180, 90)
+        SwordAimToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+        SwordAimToggle.Text = "Sword AutoAim: ON"
+        showNotification("Sword AutoAim активирован", false)
+    else
+        SwordAimToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+        SwordAimToggle.TextColor3 = Color3.fromRGB(180, 180, 180)
+        SwordAimToggle.Text = "Sword AutoAim: OFF"
+        showNotification("Sword AutoAim деактивирован", false)
+    end
+end)
+
+-- Pest Tool Button
+local GetPestToolFrame = Instance.new("Frame")
+GetPestToolFrame.Size = UDim2.new(1, 0, 0, 45)
+GetPestToolFrame.Position = UDim2.new(0, 0, 0, 515)
+GetPestToolFrame.BackgroundTransparency = 1
+GetPestToolFrame.Parent = SimplePanel
+
+local GetPestToolBtn = Instance.new("TextButton")
+GetPestToolBtn.Size = UDim2.new(1, 0, 1, 0)
+GetPestToolBtn.BackgroundColor3 = Color3.fromRGB(60, 140, 220)
+GetPestToolBtn.Font = Enum.Font.GothamBold
+GetPestToolBtn.Text = "🎁 Get Pest Tool (Pest Aim Item)"
+GetPestToolBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+GetPestToolBtn.TextSize = 13
+GetPestToolBtn.Parent = GetPestToolFrame
+Instance.new("UICorner", GetPestToolBtn).CornerRadius = UDim.new(0, 6)
+
+GetPestToolBtn.MouseButton1Click:Connect(function()
+    if player.Backpack:FindFirstChild("Pest Tool") then player.Backpack["Pest Tool"]:Destroy() end
+    if player.Character and player.Character:FindFirstChild("Pest Tool") then player.Character["Pest Tool"]:Destroy() end
+    if ScreenGui:FindFirstChild("PestToolGui") then ScreenGui.PestToolGui:Destroy() end
+
+    local ToolGui = Instance.new("Frame")
+    ToolGui.Name = "PestToolGui"
+    ToolGui.Size = UDim2.new(0, 240, 0, 140)
+    ToolGui.Position = UDim2.new(0.5, -120, 0.5, -70)
+    ToolGui.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
+    ToolGui.BorderSizePixel = 0
+    ToolGui.Active = true
+    ToolGui.Draggable = true
+    ToolGui.Visible = false
+    ToolGui.Parent = ScreenGui
+    Instance.new("UICorner", ToolGui).CornerRadius = UDim.new(0, 8)
+
+    local ToolBar = Instance.new("Frame")
+    ToolBar.Size = UDim2.new(1, 0, 0, 35)
+    ToolBar.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+    ToolBar.BorderSizePixel = 0
+    ToolBar.Parent = ToolGui
+    Instance.new("UICorner", ToolBar).CornerRadius = UDim.new(0, 8)
+
+    local ToolBarCover = Instance.new("Frame")
+    ToolBarCover.Size = UDim2.new(1, 0, 0, 8)
+    ToolBarCover.Position = UDim2.new(0, 0, 1, -8)
+    ToolBarCover.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+    ToolBarCover.BorderSizePixel = 0
+    ToolBarCover.Parent = ToolBar
+
+    local ToolTitle = Instance.new("TextLabel")
+    ToolTitle.Size = UDim2.new(1, 0, 1, 0)
+    ToolTitle.BackgroundTransparency = 1
+    ToolTitle.Font = Enum.Font.GothamBold
+    ToolTitle.Text = "Pest Aim Controller"
+    ToolTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ToolTitle.TextSize = 14
+    ToolTitle.Parent = ToolBar
+
+    local ToolToggleRow = Instance.new("Frame")
+    ToolToggleRow.Size = UDim2.new(1, -20, 0, 40)
+    ToolToggleRow.Position = UDim2.new(0, 10, 0, 45)
+    ToolToggleRow.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+    ToolToggleRow.BorderSizePixel = 0
+    ToolToggleRow.Parent = ToolGui
+    Instance.new("UICorner", ToolToggleRow).CornerRadius = UDim.new(0, 6)
+
+    local ToolToggleLabel = Instance.new("TextLabel")
+    ToolToggleLabel.Size = UDim2.new(0, 120, 1, 0)
+    ToolToggleLabel.Position = UDim2.new(0, 10, 0, 0)
+    ToolToggleLabel.BackgroundTransparency = 1
+    ToolToggleLabel.Font = Enum.Font.GothamMedium
+    ToolToggleLabel.Text = "Pest Aim"
+    ToolToggleLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+    ToolToggleLabel.TextSize = 14
+    ToolToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ToolToggleLabel.Parent = ToolToggleRow
+
+    local ToolToggleBtn = Instance.new("TextButton")
+    ToolToggleBtn.Size = UDim2.new(0, 70, 0, 26)
+    ToolToggleBtn.Position = UDim2.new(1, -80, 0.5, -13)
+    ToolToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    ToolToggleBtn.Font = Enum.Font.GothamBold
+    ToolToggleBtn.Text = "OFF"
+    ToolToggleBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    ToolToggleBtn.TextSize = 12
+    ToolToggleBtn.Parent = ToolToggleRow
+    Instance.new("UICorner", ToolToggleBtn).CornerRadius = UDim.new(0, 4)
+
+    local ToolStatusLabel = Instance.new("TextLabel")
+    ToolStatusLabel.Size = UDim2.new(1, -20, 0, 30)
+    ToolStatusLabel.Position = UDim2.new(0, 10, 0, 95)
+    ToolStatusLabel.BackgroundTransparency = 1
+    ToolStatusLabel.Font = Enum.Font.Gotham
+    ToolStatusLabel.Text = "Status: Disabled"
+    ToolStatusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    ToolStatusLabel.TextSize = 11
+    ToolStatusLabel.Parent = ToolGui
+
+    local localPestAimActive = false
+    local targetPlayerToSpam = nil
+
+    ToolToggleBtn.MouseButton1Click:Connect(function()
+        localPestAimActive = not localPestAimActive
+        if localPestAimActive then
+            ToolToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 180, 90)
+            ToolToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            ToolToggleBtn.Text = "ON"
+            ToolStatusLabel.Text = "Status: Click target player"
+            ToolStatusLabel.TextColor3 = Color3.fromRGB(60, 180, 90)
+        else
+            ToolToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+            ToolToggleBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+            ToolToggleBtn.Text = "OFF"
+            ToolStatusLabel.Text = "Status: Disabled"
+            ToolStatusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+            targetPlayerToSpam = nil
+        end
+    end)
+
+    local ToolObj = Instance.new("Tool")
+    ToolObj.Name = "Pest Tool"
+    ToolObj.RequiresHandle = true
+    ToolObj.CanBeDropped = false
+
+    local HandleObj = Instance.new("Part")
+    HandleObj.Name = "Handle"
+    HandleObj.Size = Vector3.new(1, 1, 3)
+    HandleObj.BrickColor = BrickColor.new("Bright red")
+    HandleObj.Material = Enum.Material.Neon
+    HandleObj.Parent = ToolObj
+
+    ToolObj.Equipped:Connect(function()
+        ToolGui.Visible = true
+    end)
+
+    ToolObj.Unequipped:Connect(function()
+        ToolGui.Visible = false
+    end)
+
+    ToolObj.Activated:Connect(function()
+        if not localPestAimActive then return end
+        local target = player:GetMouse().Target
+        if target and target.Parent then
+            local character = target.Parent
+            local p = Players:GetPlayerFromCharacter(character)
+            if p and p ~= player then
+                targetPlayerToSpam = p
+                ToolStatusLabel.Text = "Target: " .. p.Name
+                ToolStatusLabel.TextColor3 = Color3.fromRGB(255, 120, 120)
+            end
+        end
+    end)
+
+    ToolObj.Parent = player.Backpack
+
+    task.spawn(function()
+        while ToolObj and ToolObj.Parent do
+            if localPestAimActive and targetPlayerToSpam and targetPlayerToSpam.Character then
+                local char = targetPlayerToSpam.Character
+                local head = char:FindFirstChild("Head")
+                if head then
+                    pcall(function()
+                        local event = player.Backpack:FindFirstChild("Pistol") and player.Backpack.Pistol:FindFirstChild("RemoteEvent")
+                        if not event and player.Character and player.Character:FindFirstChild("Pistol") then
+                            event = player.Character.Pistol:FindFirstChild("RemoteEvent")
+                        end
+                        if event then
+                            event:FireServer(head)
+                        end
+                    end)
+                end
+            end
+            task.wait(0.05)
+        end
+    end)
+
+    showNotification("Pest Tool выдан в инвентарь!", false)
+end)
+
+
+-- ================== 2. EMOTES TAB (Browse & Saved) ==================
+local currentAnimTrack = nil
+local currentAnimId = nil
+local isLoopAnim = true
+
+local EmotesSubBar = Instance.new("Frame")
+EmotesSubBar.Size = UDim2.new(1, 0, 0, 35)
+EmotesSubBar.BackgroundTransparency = 1
+EmotesSubBar.Parent = EmotesPanel
+
+local BrowseEmotesBtn = Instance.new("TextButton")
+BrowseEmotesBtn.Size = UDim2.new(0, 100, 1, 0)
+BrowseEmotesBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
+BrowseEmotesBtn.Font = Enum.Font.GothamBold
+BrowseEmotesBtn.Text = "Browse"
+BrowseEmotesBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+BrowseEmotesBtn.TextSize = 13
+BrowseEmotesBtn.Parent = EmotesSubBar
+Instance.new("UICorner", BrowseEmotesBtn).CornerRadius = UDim.new(0, 6)
+
+local SavedEmotesBtn = Instance.new("TextButton")
+SavedEmotesBtn.Size = UDim2.new(0, 100, 1, 0)
+SavedEmotesBtn.Position = UDim2.new(0, 110, 0, 0)
+SavedEmotesBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+SavedEmotesBtn.Font = Enum.Font.GothamBold
+SavedEmotesBtn.Text = "Saved"
+SavedEmotesBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+SavedEmotesBtn.TextSize = 13
+SavedEmotesBtn.Parent = EmotesSubBar
+Instance.new("UICorner", SavedEmotesBtn).CornerRadius = UDim.new(0, 6)
+
+local BrowseEmotesContainer = Instance.new("Frame")
+BrowseEmotesContainer.Size = UDim2.new(1, 0, 1, -45)
+BrowseEmotesContainer.Position = UDim2.new(0, 0, 0, 45)
+BrowseEmotesContainer.BackgroundTransparency = 1
+BrowseEmotesContainer.Visible = true
+BrowseEmotesContainer.Parent = EmotesPanel
+
+local SavedEmotesContainer = Instance.new("ScrollingFrame")
+SavedEmotesContainer.Size = UDim2.new(1, 0, 1, -45)
+SavedEmotesContainer.Position = UDim2.new(0, 0, 0, 45)
+SavedEmotesContainer.BackgroundTransparency = 1
+SavedEmotesContainer.BorderSizePixel = 0
+SavedEmotesContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+SavedEmotesContainer.ScrollBarThickness = 6
+SavedEmotesContainer.Visible = false
+SavedEmotesContainer.Parent = EmotesPanel
+
+BrowseEmotesBtn.MouseButton1Click:Connect(function()
+    BrowseEmotesBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
+    BrowseEmotesBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    SavedEmotesBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+    SavedEmotesBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    BrowseEmotesContainer.Visible = true
+    SavedEmotesContainer.Visible = false
+end)
+
+SavedEmotesBtn.MouseButton1Click:Connect(function()
+    SavedEmotesBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
+    SavedEmotesBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    BrowseEmotesBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+    SavedEmotesBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    BrowseEmotesContainer.Visible = false
+    SavedEmotesContainer.Visible = true
+end)
+
+local function playAnim(id)
+    local char = player.Character if not char then return end 
+    local hum = char:FindFirstChildOfClass("Humanoid") if not hum then return end
+    local anim = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)
+    
+    for _, track in ipairs(anim:GetPlayingAnimationTracks()) do track:Stop() end
+    if currentAnimId == id then currentAnimId = nil return end
+    
+    local animIdToPlay = string.match(id, "^rbxassetid://") and id or "rbxassetid://"..id
+    pcall(function()
+        local rawId = string.match(id, "%d+")
+        local objects = game:GetObjects("rbxassetid://" .. rawId)
+        if objects and objects[1] then
+            local animObj = objects[1]:IsA("Animation") and objects[1] or objects[1]:FindFirstChildWhichIsA("Animation", true)
+            if animObj then animIdToPlay = animObj.AnimationId end
+        end
+    end)
+    
+    local a = Instance.new("Animation") 
+    a.AnimationId = animIdToPlay
+    currentAnimTrack = anim:LoadAnimation(a) 
+    currentAnimTrack.Priority = Enum.AnimationPriority.Action 
+    currentAnimTrack.Looped = isLoopAnim 
+    currentAnimTrack:Play() 
+    currentAnimId = id
+end
+
+local SearchEmotesTop = Instance.new("Frame")
+SearchEmotesTop.Size = UDim2.new(1, 0, 0, 35)
+SearchEmotesTop.BackgroundTransparency = 1
+SearchEmotesTop.Parent = BrowseEmotesContainer
+
+local SearchBox = Instance.new("TextBox")
+SearchBox.Size = UDim2.new(0.65, -5, 1, 0)
+SearchBox.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+SearchBox.PlaceholderText = "Search emotes (e.g. Dance, Griddy)..."
+SearchBox.Text = ""
+SearchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+SearchBox.Font = Enum.Font.Gotham
+SearchBox.TextSize = 13
+SearchBox.Parent = SearchEmotesTop
+Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 6)
+
+local SearchBtn = Instance.new("TextButton")
+SearchBtn.Size = UDim2.new(0.35, 0, 1, 0)
+SearchBtn.Position = UDim2.new(0.65, 5, 0, 0)
+SearchBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
+SearchBtn.Font = Enum.Font.GothamBold
+SearchBtn.Text = "Search Catalog"
+SearchBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SearchBtn.TextSize = 13
+SearchBtn.Parent = SearchEmotesTop
+Instance.new("UICorner", SearchBtn).CornerRadius = UDim.new(0, 6)
+
+local ResultsScroll = Instance.new("ScrollingFrame")
+ResultsScroll.Size = UDim2.new(1, 0, 1, -45)
+ResultsScroll.Position = UDim2.new(0, 0, 0, 45)
+ResultsScroll.BackgroundTransparency = 1
+ResultsScroll.ScrollBarThickness = 4
+ResultsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+ResultsScroll.CanvasSize = UDim2.new(0,0,0,0)
+ResultsScroll.Parent = BrowseEmotesContainer
+
+local listLayoutEmotes = Instance.new("UIListLayout")
+listLayoutEmotes.SortOrder = Enum.SortOrder.LayoutOrder
+listLayoutEmotes.Padding = UDim.new(0, 5)
+listLayoutEmotes.Parent = ResultsScroll
+
+local refreshSavedEmotesUI -- forward declaration
+
+local function refreshSavedEmotesUI()
+    for _, child in ipairs(SavedEmotesContainer:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+    local yPos = 0
+    for i, emote in ipairs(savedEmotesEmotesTab) do
+        local row = Instance.new("Frame")
+        row.Size = UDim2.new(1, 0, 0, 45)
+        row.Position = UDim2.new(0, 0, 0, yPos)
+        row.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+        row.BorderSizePixel = 0
+        row.Parent = SavedEmotesContainer
+        Instance.new("UICorner", row).CornerRadius = UDim.new(0, 8)
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(0, 200, 1, 0)
+        label.Position = UDim2.new(0, 15, 0, 0)
+        label.BackgroundTransparency = 1
+        label.Font = Enum.Font.GothamMedium
+        label.Text = emote.name .. " (" .. emote.assetId .. ")"
+        label.TextColor3 = Color3.fromRGB(220, 220, 220)
+        label.TextSize = 13
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.Parent = row
+
+        local playBtn = Instance.new("TextButton")
+        playBtn.Size = UDim2.new(0, 55, 0, 28)
+        playBtn.Position = UDim2.new(1, -210, 0.5, -14)
+        playBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
+        playBtn.Font = Enum.Font.GothamBold
+        playBtn.Text = "Play"
+        playBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        playBtn.TextSize = 11
+        playBtn.Parent = row
+        Instance.new("UICorner", playBtn).CornerRadius = UDim.new(0, 6)
+        playBtn.MouseButton1Click:Connect(function() playAnim(tostring(emote.assetId)) end)
+
+        local bindBtn = Instance.new("TextButton")
+        bindBtn.Size = UDim2.new(0, 75, 0, 28)
+        bindBtn.Position = UDim2.new(1, -145, 0.5, -14)
+        bindBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+        bindBtn.Font = Enum.Font.Gotham
+        bindBtn.Text = emote.keybind and emote.keybind.Name or "Set Bind"
+        bindBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+        bindBtn.TextSize = 11
+        bindBtn.Parent = row
+        Instance.new("UICorner", bindBtn).CornerRadius = UDim.new(0, 6)
+
+        bindBtn.MouseButton1Click:Connect(function()
+            bindBtn.Text = "Press key..."
+            local conn
+            conn = UserInputService.InputBegan:Connect(function(input, gpe)
+                if input.UserInputType == Enum.UserInputType.Keyboard then
+                    if input.KeyCode == Enum.KeyCode.Escape then
+                        emote.keybind = nil
+                        bindBtn.Text = "Set Bind"
+                        showNotification("Bind removed", false)
+                    else
+                        emote.keybind = input.KeyCode
+                        bindBtn.Text = input.KeyCode.Name
+                        showNotification("Bound to " .. input.KeyCode.Name, false)
+                    end
+                    conn:Disconnect()
+                    saveData()
+                end
+            end)
+        end)
+
+        local removeBtn = Instance.new("TextButton")
+        removeBtn.Size = UDim2.new(0, 60, 0, 28)
+        removeBtn.Position = UDim2.new(1, -65, 0.5, -14)
+        removeBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+        removeBtn.Font = Enum.Font.GothamBold
+        removeBtn.Text = "Delete"
+        removeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        removeBtn.TextSize = 11
+        removeBtn.Parent = row
+        Instance.new("UICorner", removeBtn).CornerRadius = UDim.new(0, 6)
+
+        removeBtn.MouseButton1Click:Connect(function()
+            table.remove(savedEmotesEmotesTab, i)
+            refreshSavedEmotesUI()
+            saveData()
+            showNotification("Emote removed from saved", false)
+        end)
+
+        yPos = yPos + 52
+    end
+    SavedEmotesContainer.CanvasSize = UDim2.new(0, 0, 0, yPos)
+end
+
+refreshSavedEmotesUI()
+
+local function createEmoteSearchRow(assetId, emoteName)
+    local Row = Instance.new("Frame")
+    Row.Size = UDim2.new(1, 0, 0, 45)
+    Row.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+    Row.Parent = ResultsScroll
+    Instance.new("UICorner", Row).CornerRadius = UDim.new(0, 8)
+
+    local nameLbl = Instance.new("TextLabel")
+    nameLbl.Size = UDim2.new(0.55, -10, 1, 0)
+    nameLbl.Position = UDim2.new(0, 12, 0, 0)
+    nameLbl.BackgroundTransparency = 1
+    nameLbl.TextColor3 = Color3.fromRGB(220,220,220)
+    nameLbl.Text = emoteName
+    nameLbl.Font = Enum.Font.GothamMedium
+    nameLbl.TextSize = 13
+    nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+    nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
+    nameLbl.Parent = Row
+
+    local previewBtn = Instance.new("TextButton")
+    previewBtn.Size = UDim2.new(0, 75, 0, 28)
+    previewBtn.Position = UDim2.new(1, -160, 0.5, -14)
+    previewBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
+    previewBtn.Font = Enum.Font.GothamBold
+    previewBtn.Text = "Preview"
+    previewBtn.TextColor3 = Color3.fromRGB(255,255,255)
+    previewBtn.TextSize = 11
+    previewBtn.Parent = Row
+    Instance.new("UICorner", previewBtn).CornerRadius = UDim.new(0, 6)
+
+    local saveBtn = Instance.new("TextButton")
+    saveBtn.Size = UDim2.new(0, 75, 0, 28)
+    saveBtn.Position = UDim2.new(1, -80, 0.5, -14)
+    saveBtn.BackgroundColor3 = Color3.fromRGB(60, 180, 90)
+    saveBtn.Font = Enum.Font.GothamBold
+    saveBtn.Text = "Save"
+    saveBtn.TextColor3 = Color3.fromRGB(255,255,255)
+    saveBtn.TextSize = 11
+    saveBtn.Parent = Row
+    Instance.new("UICorner", saveBtn).CornerRadius = UDim.new(0, 6)
+
+    previewBtn.MouseButton1Click:Connect(function() playAnim(tostring(assetId)) end)
+    saveBtn.MouseButton1Click:Connect(function()
+        for _, item in ipairs(savedEmotesEmotesTab) do
+            if item.assetId == assetId then
+                showNotification("Emote already saved!", true)
+                return
+            end
+        end
+        table.insert(savedEmotesEmotesTab, {name = emoteName, assetId = assetId, keybind = nil})
+        refreshSavedEmotesUI()
+        saveData()
+        showNotification("Emote saved successfully!", false)
+    end)
+end
+
+SearchBtn.MouseButton1Click:Connect(function()
+    for _, child in ipairs(ResultsScroll:GetChildren()) do if child:IsA("Frame") then child:Destroy() end end
+    local q = SearchBox.Text if q == "" then return end
+    showNotification("Ищем эмоции в каталоге...", false)
+    task.spawn(function()
+        local s2, r2 = pcall(function()
+            local searchParams = CatalogSearchParams.new()
+            searchParams.SearchKeyword = q
+            searchParams.AssetTypes = {Enum.AvatarAssetType.EmoteAnimation}
+            searchParams.SortType = Enum.CatalogSortType.Relevance
+            return AvatarEditorService:SearchCatalog(searchParams)
+        end)
+        if s2 and r2 then
+            local items = r2:GetCurrentPage()
+            if #items > 0 then
+                showNotification("Найдено результатов: " .. tostring(#items), false)
+                for _, item in ipairs(items) do createEmoteSearchRow(item.Id, item.Name) end
+            else showNotification("Эмоции по этому запросу не найдены!", true) end
+        else showNotification("Сбой поиска!", true) end
+    end)
+end)
+
+
+-- ================== 3. MOVEMENTS TAB (Browse & Saved) ==================
+local mySetts = { selectedPackData = nil }
+
+local MovementsSubBar = Instance.new("Frame")
+MovementsSubBar.Size = UDim2.new(1, 0, 0, 35)
+MovementsSubBar.BackgroundTransparency = 1
+MovementsSubBar.Parent = MovementsPanel
+
+local BrowseMovementsBtn = Instance.new("TextButton")
+BrowseMovementsBtn.Size = UDim2.new(0, 100, 1, 0)
+BrowseMovementsBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
+BrowseMovementsBtn.Font = Enum.Font.GothamBold
+BrowseMovementsBtn.Text = "Browse"
+BrowseMovementsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+BrowseMovementsBtn.TextSize = 13
+BrowseMovementsBtn.Parent = MovementsSubBar
+Instance.new("UICorner", BrowseMovementsBtn).CornerRadius = UDim.new(0, 6)
+
+local SavedMovementsBtn = Instance.new("TextButton")
+SavedMovementsBtn.Size = UDim2.new(0, 100, 1, 0)
+SavedMovementsBtn.Position = UDim2.new(0, 110, 0, 0)
+SavedMovementsBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+SavedMovementsBtn.Font = Enum.Font.GothamBold
+SavedMovementsBtn.Text = "Saved"
+SavedMovementsBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+SavedMovementsBtn.TextSize = 13
+SavedMovementsBtn.Parent = MovementsSubBar
+Instance.new("UICorner", SavedMovementsBtn).CornerRadius = UDim.new(0, 6)
+
+local BrowseMovementsContainer = Instance.new("Frame")
+BrowseMovementsContainer.Size = UDim2.new(1, 0, 1, -45)
+BrowseMovementsContainer.Position = UDim2.new(0, 0, 0, 45)
+BrowseMovementsContainer.BackgroundTransparency = 1
+BrowseMovementsContainer.Visible = true
+BrowseMovementsContainer.Parent = MovementsPanel
+
+local SavedMovementsContainer = Instance.new("ScrollingFrame")
+SavedMovementsContainer.Size = UDim2.new(1, 0, 1, -45)
+SavedMovementsContainer.Position = UDim2.new(0, 0, 0, 45)
+SavedMovementsContainer.BackgroundTransparency = 1
+SavedMovementsContainer.BorderSizePixel = 0
+SavedMovementsContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+SavedMovementsContainer.ScrollBarThickness = 6
+SavedMovementsContainer.Visible = false
+SavedMovementsContainer.Parent = MovementsPanel
+
+BrowseMovementsBtn.MouseButton1Click:Connect(function()
+    BrowseMovementsBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
+    BrowseMovementsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    SavedMovementsBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+    SavedMovementsBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    BrowseMovementsContainer.Visible = true
+    SavedMovementsContainer.Visible = false
+end)
+
+SavedMovementsBtn.MouseButton1Click:Connect(function()
+    SavedMovementsBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
+    SavedMovementsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    BrowseMovementsBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+    SavedMovementsBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    BrowseMovementsContainer.Visible = false
+    SavedMovementsContainer.Visible = true
+end)
+
+local function setMove(st, an, id) 
+    if not id or id == "" then return end 
+    local c = player.Character 
+    if c and c:FindFirstChild("Animate") then 
+        local o = c.Animate:FindFirstChild(st) 
+        if o and o:FindFirstChild(an) then 
+            local animIdToPlay = string.match(id, "^rbxassetid://") and id or "rbxassetid://"..id
+            pcall(function()
+                local rawId = string.match(id, "%d+")
+                local objects = game:GetObjects("rbxassetid://" .. rawId)
+                if objects and objects[1] then
+                    local animObj = objects[1]:IsA("Animation") and objects[1] or objects[1]:FindFirstChildWhichIsA("Animation", true)
+                    if animObj then animIdToPlay = animObj.AnimationId end
+                end
+            end)
+            o[an].AnimationId = animIdToPlay 
+        end 
+    end 
+end
+
+local function applyMove(i, w, r, j, f) 
+    setMove("idle", "Animation1", i) 
+    setMove("idle", "Animation2", i) 
+    setMove("walk", "WalkAnim", w) 
+    setMove("run", "RunAnim", r) 
+    setMove("jump", "JumpAnim", j) 
+    setMove("fall", "FallAnim", f) 
+end
+
+local function applyBundle(bundleId, bundleName)
+    showNotification("Распаковка пака " .. bundleName .. "...", false)
+    task.spawn(function()
+        local s2, details = pcall(function() return AssetService:GetBundleDetailsAsync(bundleId) end)
+        if s2 and details and details.Items then
+            local idleId, walkId, runId, jumpId, fallId
+            for _, subItem in ipairs(details.Items) do
+                local n = subItem.Name:lower()
+                local idStr = tostring(subItem.Id)
+                if n:find("idle") then idleId = idStr
+                elseif n:find("walk") then walkId = idStr
+                elseif n:find("run") then runId = idStr
+                elseif n:find("jump") then jumpId = idStr
+                elseif n:find("fall") or n:find("pose") then fallId = idStr end
+            end
+            idleId = idleId or details.Items[1] and tostring(details.Items[1].Id)
+            walkId = walkId or idleId runId = runId or walkId jumpId = jumpId or idleId fallId = fallId or jumpId
+            mySetts.selectedPackData = {idleId, walkId, runId, jumpId, fallId}
+            applyMove(idleId, walkId, runId, jumpId, fallId)
+            showNotification("Пак " .. bundleName .. " успешно применен!", false)
+        else showNotification("⚠️ Не удалось распаковать пак!", true) end
+    end)
+end
+
+local MoveTop = Instance.new("Frame")
+MoveTop.Size = UDim2.new(1, 0, 0, 35)
+MoveTop.BackgroundTransparency = 1
+MoveTop.Parent = BrowseMovementsContainer
+
+local bundleInp = Instance.new("TextBox")
+bundleInp.Size = UDim2.new(0.65, -5, 1, 0)
+bundleInp.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+bundleInp.PlaceholderText = "Bundle name (e.g. Ninja, Superhero)..."
+bundleInp.Text = ""
+bundleInp.TextColor3 = Color3.fromRGB(255, 255, 255)
+bundleInp.Font = Enum.Font.Gotham
+bundleInp.TextSize = 13
+bundleInp.Parent = MoveTop
+Instance.new("UICorner", bundleInp).CornerRadius = UDim.new(0, 6)
+
+local bundleBtn = Instance.new("TextButton")
+bundleBtn.Size = UDim2.new(0.35, 0, 1, 0)
+bundleBtn.Position = UDim2.new(0.65, 5, 0, 0)
+bundleBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
+bundleBtn.Font = Enum.Font.GothamBold
+bundleBtn.Text = "Search Pack"
+bundleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+bundleBtn.TextSize = 13
+bundleBtn.Parent = MoveTop
+Instance.new("UICorner", bundleBtn).CornerRadius = UDim.new(0, 6)
+
+local bundleResultsContainer = Instance.new("ScrollingFrame")
+bundleResultsContainer.Size = UDim2.new(1, 0, 1, -45)
+bundleResultsContainer.Position = UDim2.new(0, 0, 0, 45)
+bundleResultsContainer.BackgroundTransparency = 1
+bundleResultsContainer.ScrollBarThickness = 4
+bundleResultsContainer.AutomaticCanvasSize = Enum.AutomaticSize.Y
+bundleResultsContainer.CanvasSize = UDim2.new(0,0,0,0)
+bundleResultsContainer.Parent = BrowseMovementsContainer
+
+local listLayoutMov = Instance.new("UIListLayout")
+listLayoutMov.SortOrder = Enum.SortOrder.LayoutOrder
+listLayoutMov.Padding = UDim.new(0, 5)
+listLayoutMov.Parent = bundleResultsContainer
+
+local refreshSavedPacksUI -- forward declaration
+
+local function refreshSavedPacksUI()
+    for _, child in ipairs(SavedMovementsContainer:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+    local yPos = 0
+    for i, pack in ipairs(savedPacksMovementsTab) do
+        local row = Instance.new("Frame")
+        row.Size = UDim2.new(1, 0, 0, 45)
+        row.Position = UDim2.new(0, 0, 0, yPos)
+        row.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+        row.BorderSizePixel = 0
+        row.Parent = SavedMovementsContainer
+        Instance.new("UICorner", row).CornerRadius = UDim.new(0, 8)
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(0, 200, 1, 0)
+        label.Position = UDim2.new(0, 15, 0, 0)
+        label.BackgroundTransparency = 1
+        label.Font = Enum.Font.GothamMedium
+        label.Text = pack.name .. " (" .. pack.bundleId .. ")"
+        label.TextColor3 = Color3.fromRGB(220, 220, 220)
+        label.TextSize = 13
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.Parent = row
+
+        local applyBtn = Instance.new("TextButton")
+        applyBtn.Size = UDim2.new(0, 60, 0, 28)
+        applyBtn.Position = UDim2.new(1, -140, 0.5, -14)
+        applyBtn.BackgroundColor3 = Color3.fromRGB(60, 180, 90)
+        applyBtn.Font = Enum.Font.GothamBold
+        applyBtn.Text = "Apply"
+        applyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        applyBtn.TextSize = 11
+        applyBtn.Parent = row
+        Instance.new("UICorner", applyBtn).CornerRadius = UDim.new(0, 6)
+        applyBtn.MouseButton1Click:Connect(function() applyBundle(pack.bundleId, pack.name) end)
+
+        local removeBtn = Instance.new("TextButton")
+        removeBtn.Size = UDim2.new(0, 60, 0, 28)
+        removeBtn.Position = UDim2.new(1, -65, 0.5, -14)
+        removeBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+        removeBtn.Font = Enum.Font.GothamBold
+        removeBtn.Text = "Delete"
+        removeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        removeBtn.TextSize = 11
+        removeBtn.Parent = row
+        Instance.new("UICorner", removeBtn).CornerRadius = UDim.new(0, 6)
+
+        removeBtn.MouseButton1Click:Connect(function()
+            table.remove(savedPacksMovementsTab, i)
+            refreshSavedPacksUI()
+            saveData()
+            showNotification("Pack removed from saved", false)
+        end)
+
+        yPos = yPos + 52
+    end
+    SavedMovementsContainer.CanvasSize = UDim2.new(0, 0, 0, yPos)
+end
+
+refreshSavedPacksUI()
+
+local function createBundleSearchRow(bundleId, bundleName)
+    local Row = Instance.new("Frame")
+    Row.Size = UDim2.new(1, 0, 0, 45)
+    Row.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+    Row.Parent = bundleResultsContainer
+    Instance.new("UICorner", Row).CornerRadius = UDim.new(0, 8)
+    
+    local nameLbl = Instance.new("TextLabel")
+    nameLbl.Size = UDim2.new(0.55, -10, 1, 0)
+    nameLbl.Position = UDim2.new(0, 12, 0, 0)
+    nameLbl.BackgroundTransparency = 1
+    nameLbl.TextColor3 = Color3.fromRGB(220,220,220)
+    nameLbl.Text = bundleName
+    nameLbl.Font = Enum.Font.GothamMedium
+    nameLbl.TextSize = 13
+    nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+    nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
+    nameLbl.Parent = Row
+    
+    local applyBtn = Instance.new("TextButton")
+    applyBtn.Size = UDim2.new(0, 65, 0, 28)
+    applyBtn.Position = UDim2.new(1, -150, 0.5, -14)
+    applyBtn.BackgroundColor3 = Color3.fromRGB(60, 180, 90)
+    applyBtn.Font = Enum.Font.GothamBold
+    applyBtn.Text = "Apply"
+    applyBtn.TextColor3 = Color3.fromRGB(255,255,255)
+    applyBtn.TextSize = 11
+    applyBtn.Parent = Row
+    Instance.new("UICorner", applyBtn).CornerRadius = UDim.new(0, 6)
+    
+    local saveBtn = Instance.new("TextButton")
+    saveBtn.Size = UDim2.new(0, 65, 0, 28)
+    saveBtn.Position = UDim2.new(1, -75, 0.5, -14)
+    saveBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
+    saveBtn.Font = Enum.Font.GothamBold
+    saveBtn.Text = "Save"
+    saveBtn.TextColor3 = Color3.fromRGB(255,255,255)
+    saveBtn.TextSize = 11
+    saveBtn.Parent = Row
+    Instance.new("UICorner", saveBtn).CornerRadius = UDim.new(0, 6)
+
+    applyBtn.MouseButton1Click:Connect(function() applyBundle(bundleId, bundleName) end)
+    saveBtn.MouseButton1Click:Connect(function()
+        for _, item in ipairs(savedPacksMovementsTab) do
+            if item.bundleId == bundleId then
+                showNotification("Pack already saved!", true)
+                return
+            end
+        end
+        table.insert(savedPacksMovementsTab, {name = bundleName, bundleId = bundleId})
+        refreshSavedPacksUI()
+        saveData()
+        showNotification("Pack saved successfully!", false)
+    end)
+end
+
+bundleBtn.MouseButton1Click:Connect(function()
+    for _, child in ipairs(bundleResultsContainer:GetChildren()) do if child:IsA("Frame") then child:Destroy() end end
+    local q = bundleInp.Text if q == "" then return end
+    showNotification("Ищем паки анимаций...", false)
+    task.spawn(function()
+        local s2, r2 = pcall(function()
+            local searchParams = CatalogSearchParams.new()
+            searchParams.SearchKeyword = q
+            searchParams.BundleTypes = {Enum.BundleType.Animations}
+            searchParams.SortType = Enum.CatalogSortType.Relevance
+            return AvatarEditorService:SearchCatalog(searchParams)
+        end)
+        if s2 and r2 then
+            local items = r2:GetCurrentPage()
+            if #items > 0 then
+                showNotification("Найдено результатов: " .. tostring(#items), false)
+                for _, item in ipairs(items) do createBundleSearchRow(item.Id, item.Name) end
+            else showNotification("Паки по этому запросу не найдены!", true) end
+        else showNotification("Сбой поиска!", true) end
+    end)
+end)
+
+player.CharacterAdded:Connect(function(char)
+    local h = char:WaitForChild("Humanoid", 5)
+    if h and mySetts.selectedPackData then
+        task.delay(1, function() applyMove(unpack(mySetts.selectedPackData)) end)
+    end
+end)
+
+
+-- ================== 4. BROOKHAVEN TAB (Rainbow Text Effect) ==================
+local BrookhavenLabel = Instance.new("TextLabel")
+BrookhavenLabel.Size = UDim2.new(1, 0, 1, 0)
+BrookhavenLabel.BackgroundTransparency = 1
+BrookhavenLabel.Font = Enum.Font.GothamBold
+BrookhavenLabel.Text = "not available..."
+BrookhavenLabel.TextSize = 28
+BrookhavenLabel.TextXAlignment = Enum.TextXAlignment.Center
+BrookhavenLabel.TextYAlignment = Enum.TextYAlignment.Center
+BrookhavenLabel.Parent = BrookhavenPanel
+
+task.spawn(function()
+    while true do
+        local hue = (tick() % 5) / 5
+        BrookhavenLabel.TextColor3 = Color3.fromHSV(hue, 1, 1)
+        task.wait(0.03)
+    end
+end)
+
+
+-- ================== CORE LOOPS & GLOBAL INPUT LISTENERS ==================
+RunService.RenderStepped:Connect(function()
+    if flyEnabled and player.Character then
+        local root = player.Character:FindFirstChild("HumanoidRootPart")
+        local cam = workspace.CurrentCamera
+        if root and bodyVel and bodyGyro then
+            local moveDir = Vector3.new()
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
+            bodyVel.Velocity = moveDir * flySpeed
+            bodyGyro.CFrame = cam.CFrame
+        end
+    end
+end)
+
+RunService.Stepped:Connect(function()
+    if noclipEnabled and player.Character then
+        for _, part in ipairs(player.Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if input.KeyCode == Enum.KeyCode.Delete and not isTweening then
+        toggleHubVisibility()
+        return
+    end
+
+    if not gpe then
+        for _, emote in ipairs(savedEmotesEmotesTab) do
+            if emote.keybind and input.KeyCode == emote.keybind then
+                playAnim(tostring(emote.assetId))
+            end
+        end
+    end
+end)

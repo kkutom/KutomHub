@@ -1,5 +1,5 @@
---Если ты это читаешь то ты пидор ебаный который портит все веселье и смотрит код
---Пиздуй отсюда
+--пиздуй отсюда брадар
+--BarboskinVisuals 1.0
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -9,27 +9,30 @@ local TweenService = game:GetService("TweenService")
 local AssetService = game:GetService("AssetService")
 local AvatarEditorService = game:GetService("AvatarEditorService")
 local HttpService = game:GetService("HttpService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
 
 -- Clean up previous GUI if exists
-if CoreGui:FindFirstChild("CustomHubModern") then
-    CoreGui.CustomHubModern:Destroy()
+if CoreGui:FindFirstChild("BarboskinVisuals") then
+    CoreGui.BarboskinVisuals:Destroy()
 end
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "CustomHubModern"
+ScreenGui.Name = "BarboskinVisuals"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = CoreGui
 
 -- ================== СИСТЕМА СОХРАНЕНИЯ И ЗАГРУЗКИ ==================
-local saveFileName = "KutomHub2_SaveData.json"
+local saveFileName = "BarboskinVisuals_SaveData.json"
 local savedEmotesEmotesTab = {}
 local savedPacksMovementsTab = {}
+local hubBinds = { CmdBar = nil }
 
 local function saveData()
     pcall(function()
-        local dataToSave = { emotes = {}, packs = {} }
+        local dataToSave = { emotes = {}, packs = {}, hubBinds = hubBinds }
         for _, em in ipairs(savedEmotesEmotesTab) do
             table.insert(dataToSave.emotes, {
                 name = em.name,
@@ -55,6 +58,7 @@ local function loadData()
             local raw = readfile(saveFileName)
             local data = HttpService:JSONDecode(raw)
             if data then
+                if data.hubBinds then hubBinds = data.hubBinds end
                 if data.emotes then
                     for _, em in ipairs(data.emotes) do
                         table.insert(savedEmotesEmotesTab, {
@@ -117,7 +121,7 @@ local function showNotification(message, isError)
     end)
 end
 
--- Main Frame (Fullscreen with margins, unmovable, smooth toggle)
+-- Main Frame (BarboskinVisuals)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(1, -200, 1, -120)
@@ -133,19 +137,19 @@ local MainCorner = Instance.new("UICorner")
 MainCorner.CornerRadius = UDim.new(0, 12)
 MainCorner.Parent = MainFrame
 
--- ================== МОБИЛЬНАЯ КНОПКА СВОРАЧИВАНИЯ (FLOATING TOGGLE BUTTON) ==================
+-- Floating Mobile Button
 local FloatingBtn = Instance.new("TextButton")
 FloatingBtn.Name = "FloatingOpenBtn"
 FloatingBtn.Size = UDim2.new(0, 50, 0, 50)
 FloatingBtn.Position = UDim2.new(0, 20, 0.5, -25)
 FloatingBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
 FloatingBtn.Font = Enum.Font.GothamBold
-FloatingBtn.Text = "KH"
+FloatingBtn.Text = "BV"
 FloatingBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 FloatingBtn.TextSize = 16
-FloatingBtn.Visible = false -- Скрыта по умолчанию, когда Hub открыт
+FloatingBtn.Visible = false
 FloatingBtn.ZIndex = 200
-FloatingBtn.Draggable = true -- На телефонах можно перетаскивать куда удобно
+FloatingBtn.Draggable = true
 FloatingBtn.Parent = ScreenGui
 Instance.new("UICorner", FloatingBtn).CornerRadius = UDim.new(0, 25)
 
@@ -172,13 +176,12 @@ TitleLabel.Size = UDim2.new(0, 250, 1, 0)
 TitleLabel.Position = UDim2.new(0, 20, 0, 0)
 TitleLabel.BackgroundTransparency = 1
 TitleLabel.Font = Enum.Font.GothamBold
-TitleLabel.Text = "KutomHub 2.0"
+TitleLabel.Text = "BarboskinVisuals"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 TitleLabel.TextSize = 18
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = TopBar
 
--- Minimize (Collapse) Button for Mobile / PC
 local MinimizeBtn = Instance.new("TextButton")
 MinimizeBtn.Size = UDim2.new(0, 36, 0, 36)
 MinimizeBtn.Position = UDim2.new(1, -85, 0.5, -18)
@@ -190,7 +193,6 @@ MinimizeBtn.TextSize = 18
 MinimizeBtn.Parent = TopBar
 Instance.new("UICorner", MinimizeBtn).CornerRadius = UDim.new(0, 8)
 
--- Close Button
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0, 36, 0, 36)
 CloseBtn.Position = UDim2.new(1, -45, 0.5, -18)
@@ -206,7 +208,6 @@ CloseBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
--- Логика сворачивания / разворачивания с анимацией
 local isOpen = true
 local isTweening = false
 
@@ -238,7 +239,7 @@ end
 MinimizeBtn.MouseButton1Click:Connect(toggleHubVisibility)
 FloatingBtn.MouseButton1Click:Connect(toggleHubVisibility)
 
--- Main Category Bar (Simple, Emotes, Movements, Brookhaven)
+-- Main Category Bar (Simple, Emotes, Movements, Barboskiny)
 local CategoryBar = Instance.new("Frame")
 CategoryBar.Size = UDim2.new(1, -40, 0, 40)
 CategoryBar.Position = UDim2.new(0, 20, 0, 60)
@@ -247,13 +248,13 @@ CategoryBar.Parent = MainFrame
 
 local function createCategoryBtn(name, posX)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 110, 1, 0)
+    btn.Size = UDim2.new(0, 120, 1, 0)
     btn.Position = UDim2.new(0, posX, 0, 0)
     btn.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
     btn.Font = Enum.Font.GothamBold
     btn.Text = name
     btn.TextColor3 = Color3.fromRGB(180, 180, 180)
-    btn.TextSize = 13
+    btn.TextSize = 12
     btn.Parent = CategoryBar
 
     local corner = Instance.new("UICorner")
@@ -263,9 +264,9 @@ local function createCategoryBtn(name, posX)
 end
 
 local SimpleCatBtn = createCategoryBtn("Simple", 0)
-local EmotesCatBtn = createCategoryBtn("Emotes", 120)
-local MovementsCatBtn = createCategoryBtn("Movements", 240)
-local BrookhavenCatBtn = createCategoryBtn("Brookhaven", 360)
+local EmotesCatBtn = createCategoryBtn("Emotes", 130)
+local MovementsCatBtn = createCategoryBtn("Movements", 260)
+local BarboskinyCatBtn = createCategoryBtn("Barboskiny", 390)
 
 SimpleCatBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
 SimpleCatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -276,7 +277,7 @@ SimplePanel.Size = UDim2.new(1, -40, 1, -115)
 SimplePanel.Position = UDim2.new(0, 20, 0, 110)
 SimplePanel.BackgroundTransparency = 1
 SimplePanel.BorderSizePixel = 0
-SimplePanel.CanvasSize = UDim2.new(0, 0, 0, 680)
+SimplePanel.CanvasSize = UDim2.new(0, 0, 0, 520)
 SimplePanel.ScrollBarThickness = 6
 SimplePanel.Visible = true
 SimplePanel.Parent = MainFrame
@@ -295,12 +296,15 @@ MovementsPanel.BackgroundTransparency = 1
 MovementsPanel.Visible = false
 MovementsPanel.Parent = MainFrame
 
-local BrookhavenPanel = Instance.new("Frame")
-BrookhavenPanel.Size = UDim2.new(1, -40, 1, -115)
-BrookhavenPanel.Position = UDim2.new(0, 20, 0, 110)
-BrookhavenPanel.BackgroundTransparency = 1
-BrookhavenPanel.Visible = false
-BrookhavenPanel.Parent = MainFrame
+local BarboskinyPanel = Instance.new("ScrollingFrame")
+BarboskinyPanel.Size = UDim2.new(1, -40, 1, -115)
+BarboskinyPanel.Position = UDim2.new(0, 20, 0, 110)
+BarboskinyPanel.BackgroundTransparency = 1
+BarboskinyPanel.BorderSizePixel = 0
+BarboskinyPanel.CanvasSize = UDim2.new(0, 0, 0, 300)
+BarboskinyPanel.ScrollBarThickness = 6
+BarboskinyPanel.Visible = false
+BarboskinyPanel.Parent = MainFrame
 
 local function switchCategory(selected)
     SimpleCatBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
@@ -309,13 +313,13 @@ local function switchCategory(selected)
     EmotesCatBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
     MovementsCatBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
     MovementsCatBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
-    BrookhavenCatBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
-    BrookhavenCatBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    BarboskinyCatBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+    BarboskinyCatBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
 
     SimplePanel.Visible = (selected == "Simple")
     EmotesPanel.Visible = (selected == "Emotes")
     MovementsPanel.Visible = (selected == "Movements")
-    BrookhavenPanel.Visible = (selected == "Brookhaven")
+    BarboskinyPanel.Visible = (selected == "Barboskiny")
 
     if selected == "Simple" then
         SimpleCatBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
@@ -326,16 +330,16 @@ local function switchCategory(selected)
     elseif selected == "Movements" then
         MovementsCatBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
         MovementsCatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    elseif selected == "Brookhaven" then
-        BrookhavenCatBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
-        BrookhavenCatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    elseif selected == "Barboskiny" then
+        BarboskinyCatBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
+        BarboskinyCatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     end
 end
 
 SimpleCatBtn.MouseButton1Click:Connect(function() switchCategory("Simple") end)
 EmotesCatBtn.MouseButton1Click:Connect(function() switchCategory("Emotes") end)
 MovementsCatBtn.MouseButton1Click:Connect(function() switchCategory("Movements") end)
-BrookhavenCatBtn.MouseButton1Click:Connect(function() switchCategory("Brookhaven") end)
+BarboskinyCatBtn.MouseButton1Click:Connect(function() switchCategory("Barboskiny") end)
 
 
 -- ================== 1. SIMPLE TAB ==================
@@ -500,9 +504,13 @@ createInputRow("Jump Height Value", 300, targetJumpPower, function(val)
     end
 end)
 
-local function updateEspForCharacter(char, enable)
+-- ESP с отображением здоровья
+local espConnections = {}
+local function updateEspForCharacter(p, char, enable)
     if not char then return end
     local hl = char:FindFirstChild("KutomHubESP")
+    local bg = char:FindFirstChild("KutomHubHealthTag")
+
     if enable then
         if not hl then
             hl = Instance.new("Highlight")
@@ -514,27 +522,61 @@ local function updateEspForCharacter(char, enable)
             hl.Adornee = char
             hl.Parent = char
         end
+
+        local head = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+        if head and not bg then
+            bg = Instance.new("BillboardGui")
+            bg.Name = "KutomHubHealthTag"
+            bg.Size = UDim2.new(0, 120, 0, 30)
+            bg.StudsOffset = Vector3.new(0, 2.5, 0)
+            bg.AlwaysOnTop = true
+            bg.Parent = head
+
+            local txt = Instance.new("TextLabel")
+            txt.Name = "HealthText"
+            txt.Size = UDim2.new(1, 0, 1, 0)
+            txt.BackgroundTransparency = 1
+            txt.Font = Enum.Font.GothamBold
+            txt.TextSize = 12
+            txt.TextColor3 = Color3.fromRGB(0, 255, 100)
+            txt.TextStrokeTransparency = 0.3
+            txt.Parent = bg
+
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                local function updateText()
+                    txt.Text = string.format("%s\nHP: %d/%d", p.Name, math.floor(hum.Health), math.floor(hum.MaxHealth))
+                end
+                updateText()
+                espConnections[p] = hum.HealthChanged:Connect(function()
+                    updateText()
+                end)
+            end
+        end
     else
-        if hl then
-            hl:Destroy()
+        if hl then hl:Destroy() end
+        if bg then bg:Destroy() end
+        if espConnections[p] then
+            espConnections[p]:Disconnect()
+            espConnections[p] = nil
         end
     end
 end
 
-createToggleRow("ESP (Wallhack)", 350, function(state)
+createToggleRow("ESP (Wallhack + HP)", 350, function(state)
     espEnabled = state
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= player then
             if espEnabled then
-                if p.Character then updateEspForCharacter(p.Character, true) end
+                if p.Character then updateEspForCharacter(p, p.Character, true) end
                 p.CharacterAdded:Connect(function(newChar)
                     if espEnabled then
                         newChar:WaitForChild("HumanoidRootPart", 5)
-                        updateEspForCharacter(newChar, true)
+                        updateEspForCharacter(p, newChar, true)
                     end
                 end)
             else
-                if p.Character then updateEspForCharacter(p.Character, false) end
+                if p.Character then updateEspForCharacter(p, p.Character, false) end
             end
         end
     end
@@ -545,7 +587,7 @@ Players.PlayerAdded:Connect(function(p)
         p.CharacterAdded:Connect(function(newChar)
             if espEnabled then
                 newChar:WaitForChild("HumanoidRootPart", 5)
-                updateEspForCharacter(newChar, true)
+                updateEspForCharacter(p, newChar, true)
             end
         end)
     end
@@ -609,238 +651,8 @@ SimpleTpBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Sword AutoAim
-local swordAutoAimEnabled = false
-local swordTargetName = ""
 
-local SwordAimFrame = Instance.new("Frame")
-SwordAimFrame.Size = UDim2.new(1, 0, 0, 45)
-SwordAimFrame.Position = UDim2.new(0, 0, 0, 460)
-SwordAimFrame.BackgroundTransparency = 1
-SwordAimFrame.Parent = SimplePanel
-
-local SwordAimBox = Instance.new("TextBox")
-SwordAimBox.Size = UDim2.new(0.5, -5, 1, 0)
-SwordAimBox.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
-SwordAimBox.PlaceholderText = "Target name for Sword..."
-SwordAimBox.Text = ""
-SwordAimBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-SwordAimBox.Font = Enum.Font.Gotham
-SwordAimBox.TextSize = 13
-SwordAimBox.Parent = SwordAimFrame
-Instance.new("UICorner", SwordAimBox).CornerRadius = UDim.new(0, 6)
-
-SwordAimBox.FocusLost:Connect(function()
-    swordTargetName = string.lower(SwordAimBox.Text)
-end)
-
-local SwordAimToggle = Instance.new("TextButton")
-SwordAimToggle.Size = UDim2.new(0.5, -5, 1, 0)
-SwordAimToggle.Position = UDim2.new(0.5, 5, 0, 0)
-SwordAimToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-SwordAimToggle.Font = Enum.Font.GothamBold
-SwordAimToggle.Text = "Sword AutoAim: OFF"
-SwordAimToggle.TextColor3 = Color3.fromRGB(180, 180, 180)
-SwordAimToggle.TextSize = 12
-SwordAimToggle.Parent = SwordAimFrame
-Instance.new("UICorner", SwordAimToggle).CornerRadius = UDim.new(0, 6)
-
-SwordAimToggle.MouseButton1Click:Connect(function()
-    swordAutoAimEnabled = not swordAutoAimEnabled
-    swordTargetName = string.lower(SwordAimBox.Text)
-    if swordAutoAimEnabled then
-        SwordAimToggle.BackgroundColor3 = Color3.fromRGB(60, 180, 90)
-        SwordAimToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-        SwordAimToggle.Text = "Sword AutoAim: ON"
-        showNotification("Sword AutoAim активирован", false)
-    else
-        SwordAimToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-        SwordAimToggle.TextColor3 = Color3.fromRGB(180, 180, 180)
-        SwordAimToggle.Text = "Sword AutoAim: OFF"
-        showNotification("Sword AutoAim деактивирован", false)
-    end
-end)
-
--- Pest Tool Button
-local GetPestToolFrame = Instance.new("Frame")
-GetPestToolFrame.Size = UDim2.new(1, 0, 0, 45)
-GetPestToolFrame.Position = UDim2.new(0, 0, 0, 515)
-GetPestToolFrame.BackgroundTransparency = 1
-GetPestToolFrame.Parent = SimplePanel
-
-local GetPestToolBtn = Instance.new("TextButton")
-GetPestToolBtn.Size = UDim2.new(1, 0, 1, 0)
-GetPestToolBtn.BackgroundColor3 = Color3.fromRGB(60, 140, 220)
-GetPestToolBtn.Font = Enum.Font.GothamBold
-GetPestToolBtn.Text = "🎁 Get Pest Tool (Pest Aim Item)"
-GetPestToolBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-GetPestToolBtn.TextSize = 13
-GetPestToolBtn.Parent = GetPestToolFrame
-Instance.new("UICorner", GetPestToolBtn).CornerRadius = UDim.new(0, 6)
-
-GetPestToolBtn.MouseButton1Click:Connect(function()
-    if player.Backpack:FindFirstChild("Pest Tool") then player.Backpack["Pest Tool"]:Destroy() end
-    if player.Character and player.Character:FindFirstChild("Pest Tool") then player.Character["Pest Tool"]:Destroy() end
-    if ScreenGui:FindFirstChild("PestToolGui") then ScreenGui.PestToolGui:Destroy() end
-
-    local ToolGui = Instance.new("Frame")
-    ToolGui.Name = "PestToolGui"
-    ToolGui.Size = UDim2.new(0, 240, 0, 140)
-    ToolGui.Position = UDim2.new(0.5, -120, 0.5, -70)
-    ToolGui.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
-    ToolGui.BorderSizePixel = 0
-    ToolGui.Active = true
-    ToolGui.Draggable = true
-    ToolGui.Visible = false
-    ToolGui.Parent = ScreenGui
-    Instance.new("UICorner", ToolGui).CornerRadius = UDim.new(0, 8)
-
-    local ToolBar = Instance.new("Frame")
-    ToolBar.Size = UDim2.new(1, 0, 0, 35)
-    ToolBar.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
-    ToolBar.BorderSizePixel = 0
-    ToolBar.Parent = ToolGui
-    Instance.new("UICorner", ToolBar).CornerRadius = UDim.new(0, 8)
-
-    local ToolBarCover = Instance.new("Frame")
-    ToolBarCover.Size = UDim2.new(1, 0, 0, 8)
-    ToolBarCover.Position = UDim2.new(0, 0, 1, -8)
-    ToolBarCover.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
-    ToolBarCover.BorderSizePixel = 0
-    ToolBarCover.Parent = ToolBar
-
-    local ToolTitle = Instance.new("TextLabel")
-    ToolTitle.Size = UDim2.new(1, 0, 1, 0)
-    ToolTitle.BackgroundTransparency = 1
-    ToolTitle.Font = Enum.Font.GothamBold
-    ToolTitle.Text = "Pest Aim Controller"
-    ToolTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    ToolTitle.TextSize = 14
-    ToolTitle.Parent = ToolBar
-
-    local ToolToggleRow = Instance.new("Frame")
-    ToolToggleRow.Size = UDim2.new(1, -20, 0, 40)
-    ToolToggleRow.Position = UDim2.new(0, 10, 0, 45)
-    ToolToggleRow.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
-    ToolToggleRow.BorderSizePixel = 0
-    ToolToggleRow.Parent = ToolGui
-    Instance.new("UICorner", ToolToggleRow).CornerRadius = UDim.new(0, 6)
-
-    local ToolToggleLabel = Instance.new("TextLabel")
-    ToolToggleLabel.Size = UDim2.new(0, 120, 1, 0)
-    ToolToggleLabel.Position = UDim2.new(0, 10, 0, 0)
-    ToolToggleLabel.BackgroundTransparency = 1
-    ToolToggleLabel.Font = Enum.Font.GothamMedium
-    ToolToggleLabel.Text = "Pest Aim"
-    ToolToggleLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
-    ToolToggleLabel.TextSize = 14
-    ToolToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    ToolToggleLabel.Parent = ToolToggleRow
-
-    local ToolToggleBtn = Instance.new("TextButton")
-    ToolToggleBtn.Size = UDim2.new(0, 70, 0, 26)
-    ToolToggleBtn.Position = UDim2.new(1, -80, 0.5, -13)
-    ToolToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-    ToolToggleBtn.Font = Enum.Font.GothamBold
-    ToolToggleBtn.Text = "OFF"
-    ToolToggleBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
-    ToolToggleBtn.TextSize = 12
-    ToolToggleBtn.Parent = ToolToggleRow
-    Instance.new("UICorner", ToolToggleBtn).CornerRadius = UDim.new(0, 4)
-
-    local ToolStatusLabel = Instance.new("TextLabel")
-    ToolStatusLabel.Size = UDim2.new(1, -20, 0, 30)
-    ToolStatusLabel.Position = UDim2.new(0, 10, 0, 95)
-    ToolStatusLabel.BackgroundTransparency = 1
-    ToolStatusLabel.Font = Enum.Font.Gotham
-    ToolStatusLabel.Text = "Status: Disabled"
-    ToolStatusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-    ToolStatusLabel.TextSize = 11
-    ToolStatusLabel.Parent = ToolGui
-
-    local localPestAimActive = false
-    local targetPlayerToSpam = nil
-
-    ToolToggleBtn.MouseButton1Click:Connect(function()
-        localPestAimActive = not localPestAimActive
-        if localPestAimActive then
-            ToolToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 180, 90)
-            ToolToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-            ToolToggleBtn.Text = "ON"
-            ToolStatusLabel.Text = "Status: Click target player"
-            ToolStatusLabel.TextColor3 = Color3.fromRGB(60, 180, 90)
-        else
-            ToolToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-            ToolToggleBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
-            ToolToggleBtn.Text = "OFF"
-            ToolStatusLabel.Text = "Status: Disabled"
-            ToolStatusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-            targetPlayerToSpam = nil
-        end
-    end)
-
-    local ToolObj = Instance.new("Tool")
-    ToolObj.Name = "Pest Tool"
-    ToolObj.RequiresHandle = true
-    ToolObj.CanBeDropped = false
-
-    local HandleObj = Instance.new("Part")
-    HandleObj.Name = "Handle"
-    HandleObj.Size = Vector3.new(1, 1, 3)
-    HandleObj.BrickColor = BrickColor.new("Bright red")
-    HandleObj.Material = Enum.Material.Neon
-    HandleObj.Parent = ToolObj
-
-    ToolObj.Equipped:Connect(function()
-        ToolGui.Visible = true
-    end)
-
-    ToolObj.Unequipped:Connect(function()
-        ToolGui.Visible = false
-    end)
-
-    ToolObj.Activated:Connect(function()
-        if not localPestAimActive then return end
-        local target = player:GetMouse().Target
-        if target and target.Parent then
-            local character = target.Parent
-            local p = Players:GetPlayerFromCharacter(character)
-            if p and p ~= player then
-                targetPlayerToSpam = p
-                ToolStatusLabel.Text = "Target: " .. p.Name
-                ToolStatusLabel.TextColor3 = Color3.fromRGB(255, 120, 120)
-            end
-        end
-    end)
-
-    ToolObj.Parent = player.Backpack
-
-    task.spawn(function()
-        while ToolObj and ToolObj.Parent do
-            if localPestAimActive and targetPlayerToSpam and targetPlayerToSpam.Character then
-                local char = targetPlayerToSpam.Character
-                local head = char:FindFirstChild("Head")
-                if head then
-                    pcall(function()
-                        local event = player.Backpack:FindFirstChild("Pistol") and player.Backpack.Pistol:FindFirstChild("RemoteEvent")
-                        if not event and player.Character and player.Character:FindFirstChild("Pistol") then
-                            event = player.Character.Pistol:FindFirstChild("RemoteEvent")
-                        end
-                        if event then
-                            event:FireServer(head)
-                        end
-                    end)
-                end
-            end
-            task.wait(0.05)
-        end
-    end)
-
-    showNotification("Pest Tool выдан в инвентарь!", false)
-end)
-
-
--- ================== 2. EMOTES TAB (Browse & Saved) ==================
+-- ================== 2. EMOTES TAB ==================
 local currentAnimTrack = nil
 local currentAnimId = nil
 local isLoopAnim = true
@@ -974,7 +786,7 @@ listLayoutEmotes.SortOrder = Enum.SortOrder.LayoutOrder
 listLayoutEmotes.Padding = UDim.new(0, 5)
 listLayoutEmotes.Parent = ResultsScroll
 
-local refreshSavedEmotesUI -- forward declaration
+local refreshSavedEmotesUI
 
 local function refreshSavedEmotesUI()
     for _, child in ipairs(SavedEmotesContainer:GetChildren()) do
@@ -1148,7 +960,7 @@ SearchBtn.MouseButton1Click:Connect(function()
 end)
 
 
--- ================== 3. MOVEMENTS TAB (Browse & Saved) ==================
+-- ================== 3. MOVEMENTS TAB ==================
 local mySetts = { selectedPackData = nil }
 
 local MovementsSubBar = Instance.new("Frame")
@@ -1306,7 +1118,7 @@ listLayoutMov.SortOrder = Enum.SortOrder.LayoutOrder
 listLayoutMov.Padding = UDim.new(0, 5)
 listLayoutMov.Parent = bundleResultsContainer
 
-local refreshSavedPacksUI -- forward declaration
+local refreshSavedPacksUI
 
 local function refreshSavedPacksUI()
     for _, child in ipairs(SavedMovementsContainer:GetChildren()) do
@@ -1456,23 +1268,527 @@ player.CharacterAdded:Connect(function(char)
 end)
 
 
--- ================== 4. BROOKHAVEN TAB (Rainbow Text Effect) ==================
-local BrookhavenLabel = Instance.new("TextLabel")
-BrookhavenLabel.Size = UDim2.new(1, 0, 1, 0)
-BrookhavenLabel.BackgroundTransparency = 1
-BrookhavenLabel.Font = Enum.Font.GothamBold
-BrookhavenLabel.Text = "not available..."
-BrookhavenLabel.TextSize = 28
-BrookhavenLabel.TextXAlignment = Enum.TextXAlignment.Center
-BrookhavenLabel.TextYAlignment = Enum.TextYAlignment.Center
-BrookhavenLabel.Parent = BrookhavenPanel
+-- ================== 4. BARBOSKINY TAB ==================
+
+-- 1. Кнопка выдачи Pest Tool
+local GetPestToolFrame = Instance.new("Frame")
+GetPestToolFrame.Size = UDim2.new(1, 0, 0, 45)
+GetPestToolFrame.Position = UDim2.new(0, 0, 0, 10)
+GetPestToolFrame.BackgroundTransparency = 1
+GetPestToolFrame.Parent = BarboskinyPanel
+
+local GetPestToolBtn = Instance.new("TextButton")
+GetPestToolBtn.Size = UDim2.new(1, 0, 1, 0)
+GetPestToolBtn.BackgroundColor3 = Color3.fromRGB(60, 140, 220)
+GetPestToolBtn.Font = Enum.Font.GothamBold
+GetPestToolBtn.Text = "🎁 Get Pest Tool (10 Fires/Sec + LoopKill)"
+GetPestToolBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+GetPestToolBtn.TextSize = 13
+GetPestToolBtn.Parent = GetPestToolFrame
+Instance.new("UICorner", GetPestToolBtn).CornerRadius = UDim.new(0, 6)
+
+GetPestToolBtn.MouseButton1Click:Connect(function()
+    if player.Backpack:FindFirstChild("Pest Tool") then player.Backpack["Pest Tool"]:Destroy() end
+    if player.Character and player.Character:FindFirstChild("Pest Tool") then player.Character["Pest Tool"]:Destroy() end
+    if ScreenGui:FindFirstChild("PestToolGui") then ScreenGui.PestToolGui:Destroy() end
+
+    local ToolGui = Instance.new("Frame")
+    ToolGui.Name = "PestToolGui"
+    ToolGui.Size = UDim2.new(0, 240, 0, 185)
+    ToolGui.Position = UDim2.new(0.5, -120, 0.5, -92)
+    ToolGui.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
+    ToolGui.BorderSizePixel = 0
+    ToolGui.Active = true
+    ToolGui.Draggable = true
+    ToolGui.Visible = false
+    ToolGui.Parent = ScreenGui
+    Instance.new("UICorner", ToolGui).CornerRadius = UDim.new(0, 8)
+
+    local ToolBar = Instance.new("Frame")
+    ToolBar.Size = UDim2.new(1, 0, 0, 35)
+    ToolBar.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+    ToolBar.BorderSizePixel = 0
+    ToolBar.Parent = ToolGui
+    Instance.new("UICorner", ToolBar).CornerRadius = UDim.new(0, 8)
+
+    local ToolBarCover = Instance.new("Frame")
+    ToolBarCover.Size = UDim2.new(1, 0, 0, 8)
+    ToolBarCover.Position = UDim2.new(0, 0, 1, -8)
+    ToolBarCover.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+    ToolBarCover.BorderSizePixel = 0
+    ToolBarCover.Parent = ToolBar
+
+    local ToolTitle = Instance.new("TextLabel")
+    ToolTitle.Size = UDim2.new(1, 0, 1, 0)
+    ToolTitle.BackgroundTransparency = 1
+    ToolTitle.Font = Enum.Font.GothamBold
+    ToolTitle.Text = "Pest Tool Controller"
+    ToolTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ToolTitle.TextSize = 14
+    ToolTitle.Parent = ToolBar
+
+    local ToolToggleRow = Instance.new("Frame")
+    ToolToggleRow.Size = UDim2.new(1, -20, 0, 35)
+    ToolToggleRow.Position = UDim2.new(0, 10, 0, 45)
+    ToolToggleRow.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+    ToolToggleRow.BorderSizePixel = 0
+    ToolToggleRow.Parent = ToolGui
+    Instance.new("UICorner", ToolToggleRow).CornerRadius = UDim.new(0, 6)
+
+    local ToolToggleLabel = Instance.new("TextLabel")
+    ToolToggleLabel.Size = UDim2.new(0, 120, 1, 0)
+    ToolToggleLabel.Position = UDim2.new(0, 10, 0, 0)
+    ToolToggleLabel.BackgroundTransparency = 1
+    ToolToggleLabel.Font = Enum.Font.GothamMedium
+    ToolToggleLabel.Text = "Pest Aim (Click)"
+    ToolToggleLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+    ToolToggleLabel.TextSize = 13
+    ToolToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ToolToggleLabel.Parent = ToolToggleRow
+
+    local ToolToggleBtn = Instance.new("TextButton")
+    ToolToggleBtn.Size = UDim2.new(0, 70, 0, 24)
+    ToolToggleBtn.Position = UDim2.new(1, -80, 0.5, -12)
+    ToolToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    ToolToggleBtn.Font = Enum.Font.GothamBold
+    ToolToggleBtn.Text = "OFF"
+    ToolToggleBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    ToolToggleBtn.TextSize = 11
+    ToolToggleBtn.Parent = ToolToggleRow
+    Instance.new("UICorner", ToolToggleBtn).CornerRadius = UDim.new(0, 4)
+
+    local LoopKillRow = Instance.new("Frame")
+    LoopKillRow.Size = UDim2.new(1, -20, 0, 35)
+    LoopKillRow.Position = UDim2.new(0, 10, 0, 85)
+    LoopKillRow.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+    LoopKillRow.BorderSizePixel = 0
+    LoopKillRow.Parent = ToolGui
+    Instance.new("UICorner", LoopKillRow).CornerRadius = UDim.new(0, 6)
+
+    local LoopKillLabel = Instance.new("TextLabel")
+    LoopKillLabel.Size = UDim2.new(0, 120, 1, 0)
+    LoopKillLabel.Position = UDim2.new(0, 10, 0, 0)
+    LoopKillLabel.BackgroundTransparency = 1
+    LoopKillLabel.Font = Enum.Font.GothamMedium
+    LoopKillLabel.Text = "LoopKill"
+    LoopKillLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+    LoopKillLabel.TextSize = 13
+    LoopKillLabel.TextXAlignment = Enum.TextXAlignment.Left
+    LoopKillLabel.Parent = LoopKillRow
+
+    local LoopKillBtn = Instance.new("TextButton")
+    LoopKillBtn.Size = UDim2.new(0, 70, 0, 24)
+    LoopKillBtn.Position = UDim2.new(1, -80, 0.5, -12)
+    LoopKillBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    LoopKillBtn.Font = Enum.Font.GothamBold
+    LoopKillBtn.Text = "OFF"
+    LoopKillBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    LoopKillBtn.TextSize = 11
+    LoopKillBtn.Parent = LoopKillRow
+    Instance.new("UICorner", LoopKillBtn).CornerRadius = UDim.new(0, 4)
+
+    local ToolStatusLabel = Instance.new("TextLabel")
+    ToolStatusLabel.Size = UDim2.new(1, -20, 0, 30)
+    ToolStatusLabel.Position = UDim2.new(0, 10, 0, 135)
+    ToolStatusLabel.BackgroundTransparency = 1
+    ToolStatusLabel.Font = Enum.Font.Gotham
+    ToolStatusLabel.Text = "Status: Disabled"
+    ToolStatusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    ToolStatusLabel.TextSize = 11
+    ToolStatusLabel.Parent = ToolGui
+
+    local localPestAimActive = false
+    local loopKillActive = false
+    local targetPlayerToSpam = nil
+
+    ToolToggleBtn.MouseButton1Click:Connect(function()
+        localPestAimActive = not localPestAimActive
+        if localPestAimActive then
+            ToolToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 180, 90)
+            ToolToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            ToolToggleBtn.Text = "ON"
+            ToolStatusLabel.Text = "Status: Click any body part"
+            ToolStatusLabel.TextColor3 = Color3.fromRGB(60, 180, 90)
+        else
+            ToolToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+            ToolToggleBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+            ToolToggleBtn.Text = "OFF"
+            ToolStatusLabel.Text = "Status: Disabled"
+            ToolStatusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+            targetPlayerToSpam = nil
+            loopKillActive = false
+            LoopKillBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+            LoopKillBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+            LoopKillBtn.Text = "OFF"
+        end
+    end)
+
+    LoopKillBtn.MouseButton1Click:Connect(function()
+        if not targetPlayerToSpam then
+            showNotification("Сначала выберите цель кликом по телу!", true)
+            return
+        end
+        loopKillActive = not loopKillActive
+        if loopKillActive then
+            LoopKillBtn.BackgroundColor3 = Color3.fromRGB(60, 180, 90)
+            LoopKillBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            LoopKillBtn.Text = "ON"
+            showNotification("LoopKill включен для " .. targetPlayerToSpam.Name, false)
+        else
+            LoopKillBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+            LoopKillBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+            LoopKillBtn.Text = "OFF"
+            showNotification("LoopKill выключен", false)
+        end
+    end)
+
+    local ToolObj = Instance.new("Tool")
+    ToolObj.Name = "Pest Tool"
+    ToolObj.RequiresHandle = true
+    ToolObj.CanBeDropped = false
+
+    local HandleObj = Instance.new("Part")
+    HandleObj.Name = "Handle"
+    HandleObj.Size = Vector3.new(1, 1, 3)
+    HandleObj.BrickColor = BrickColor.new("Bright red")
+    HandleObj.Material = Enum.Material.Neon
+    HandleObj.Parent = ToolObj
+
+    ToolObj.Equipped:Connect(function()
+        ToolGui.Visible = true
+    end)
+
+    ToolObj.Unequipped:Connect(function()
+        ToolGui.Visible = false
+    end)
+
+    ToolObj.Activated:Connect(function()
+        if not localPestAimActive then return end
+        local target = player:GetMouse().Target
+        if target and target.Parent then
+            local character = target.Parent
+            local hum = character:FindFirstChildOfClass("Humanoid")
+            if not hum and character.Parent and character.Parent:FindFirstChildOfClass("Humanoid") then
+                character = character.Parent
+            end
+            
+            local p = Players:GetPlayerFromCharacter(character)
+            if p and p ~= player then
+                targetPlayerToSpam = p
+                ToolStatusLabel.Text = "Target: " .. p.Name
+                ToolStatusLabel.TextColor3 = Color3.fromRGB(255, 120, 120)
+                showNotification("Цель выбрана: " .. p.Name, false)
+            end
+        end
+    end)
+
+    ToolObj.Parent = player.Backpack
+
+    task.spawn(function()
+        while ToolObj and ToolObj.Parent do
+            if (localPestAimActive or loopKillActive) and targetPlayerToSpam then
+                local char = targetPlayerToSpam.Character
+                if char then
+                    local head = char:FindFirstChild("Head")
+                    if head then
+                        pcall(function()
+                            local event = player.Backpack:FindFirstChild("Pistol") and player.Backpack.Pistol:FindFirstChild("RemoteEvent")
+                            if not event and player.Character and player.Character:FindFirstChild("Pistol") then
+                                event = player.Character.Pistol:FindFirstChild("RemoteEvent")
+                            end
+                            if event then
+                                event:FireServer(head)
+                            end
+                        end)
+                    end
+                end
+            end
+            task.wait(0.1)
+        end
+    end)
+
+    showNotification("Pest Tool выдан в инвентарь!", false)
+end)
+
+-- 2. Желтая кнопка "show cmds (vip only)"
+local ShowCmdsBtn = Instance.new("TextButton")
+ShowCmdsBtn.Size = UDim2.new(1, 0, 0, 45)
+ShowCmdsBtn.Position = UDim2.new(0, 0, 0, 65)
+ShowCmdsBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
+ShowCmdsBtn.Font = Enum.Font.GothamBold
+ShowCmdsBtn.Text = "show cmds (vip only)"
+ShowCmdsBtn.TextColor3 = Color3.fromRGB(40, 40, 40)
+ShowCmdsBtn.TextSize = 13
+ShowCmdsBtn.Parent = BarboskinyPanel
+Instance.new("UICorner", ShowCmdsBtn).CornerRadius = UDim.new(0, 6)
+
+ShowCmdsBtn.MouseButton1Click:Connect(function()
+    pcall(function()
+        local hdInterface = player.PlayerGui:FindFirstChild("HDAdminInterface")
+        if hdInterface then
+            local mainFrame = hdInterface:FindFirstChild("MainFrame")
+            if mainFrame then
+                if not mainFrame.Visible then
+                    mainFrame.Visible = true
+                    showNotification("HDAdmin Interface показан!", false)
+                else
+                    showNotification("HDAdmin Interface уже открыт.", false)
+                end
+            else
+                showNotification("MainFrame не найден внутри HDAdminInterface!", true)
+            end
+        else
+            showNotification("HDAdminInterface не найден в PlayerGui!", true)
+        end
+    end)
+end)
+
+-- 3. CmdBar (vip only) с радужным текстом и биндом
+local function triggerCmdBar()
+    pcall(function()
+        local hdInterface = player.PlayerGui:FindFirstChild("HDAdminInterface")
+        if hdInterface then
+            local cmdBar = hdInterface:FindFirstChild("CmdBar")
+            if cmdBar then
+                cmdBar.Visible = true
+                local searchFrame = cmdBar:FindFirstChild("SearchFrame")
+                if searchFrame then
+                    local textBox = searchFrame:FindFirstChild("TextBox")
+                    if textBox then
+                        if not textBox.TextEditable then
+                            textBox.TextEditable = true
+                        end
+                        textBox:CaptureFocus()
+                    end
+                end
+                showNotification("CmdBar активирован и разблокирован!", false)
+            else
+                showNotification("CmdBar не найден в HDAdminInterface!", true)
+            end
+        else
+            showNotification("HDAdminInterface не найден в PlayerGui!", true)
+        end
+    end)
+end
+
+local CmdBarRow = Instance.new("Frame")
+CmdBarRow.Size = UDim2.new(1, 0, 0, 45)
+CmdBarRow.Position = UDim2.new(0, 0, 0, 120)
+CmdBarRow.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+CmdBarRow.BorderSizePixel = 0
+CmdBarRow.Parent = BarboskinyPanel
+Instance.new("UICorner", CmdBarRow).CornerRadius = UDim.new(0, 8)
+
+local CmdBarBtn = Instance.new("TextButton")
+CmdBarBtn.Size = UDim2.new(1, -50, 1, 0)
+CmdBarBtn.BackgroundTransparency = 1
+CmdBarBtn.Font = Enum.Font.GothamBold
+CmdBarBtn.Text = "CmdBar (vip only)"
+CmdBarBtn.TextSize = 13
+CmdBarBtn.Parent = CmdBarRow
 
 task.spawn(function()
     while true do
         local hue = (tick() % 5) / 5
-        BrookhavenLabel.TextColor3 = Color3.fromHSV(hue, 1, 1)
+        CmdBarBtn.TextColor3 = Color3.fromHSV(hue, 1, 1)
         task.wait(0.03)
     end
+end)
+
+local CmdBarBindBtn = Instance.new("TextButton")
+CmdBarBindBtn.Size = UDim2.new(0, 45, 1, 0)
+CmdBarBindBtn.Position = UDim2.new(1, -45, 0, 0)
+CmdBarBindBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+CmdBarBindBtn.Font = Enum.Font.GothamBold
+CmdBarBindBtn.Text = hubBinds.CmdBar and "["..hubBinds.CmdBar.Name.."]" or "None"
+CmdBarBindBtn.TextColor3 = hubBinds.CmdBar and Color3.fromRGB(150, 255, 150) or Color3.fromRGB(200, 200, 200)
+CmdBarBindBtn.TextSize = 11
+CmdBarBindBtn.Parent = CmdBarRow
+Instance.new("UICorner", CmdBarBindBtn).CornerRadius = UDim.new(0, 6)
+
+CmdBarBtn.MouseButton1Click:Connect(triggerCmdBar)
+
+local isBindingCmdBar = false
+CmdBarBindBtn.MouseButton1Click:Connect(function()
+    if isBindingCmdBar then return end
+    isBindingCmdBar = true
+    CmdBarBindBtn.Text = "..."
+    TweenService:Create(CmdBarBindBtn, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(255, 200, 50)}):Play()
+end)
+
+-- 4. Кнопка "show/hide mini cmds bar" и мини-окошко
+local MiniCmdsToggleBtn = Instance.new("TextButton")
+MiniCmdsToggleBtn.Size = UDim2.new(1, 0, 0, 45)
+MiniCmdsToggleBtn.Position = UDim2.new(0, 0, 0, 175)
+MiniCmdsToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
+MiniCmdsToggleBtn.Font = Enum.Font.GothamBold
+MiniCmdsToggleBtn.Text = "show mini cmds bar"
+MiniCmdsToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MiniCmdsToggleBtn.TextSize = 13
+MiniCmdsToggleBtn.Parent = BarboskinyPanel
+Instance.new("UICorner", MiniCmdsToggleBtn).CornerRadius = UDim.new(0, 6)
+
+local MiniCmdsFrame = Instance.new("Frame")
+MiniCmdsFrame.Name = "MiniCmdsFrame"
+MiniCmdsFrame.Size = UDim2.new(0, 280, 0, 110)
+MiniCmdsFrame.Position = UDim2.new(0.5, -140, 0.3, 0)
+MiniCmdsFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
+MiniCmdsFrame.BorderSizePixel = 0
+MiniCmdsFrame.Active = true
+MiniCmdsFrame.Draggable = true
+MiniCmdsFrame.Visible = false
+MiniCmdsFrame.ZIndex = 150
+MiniCmdsFrame.Parent = ScreenGui
+Instance.new("UICorner", MiniCmdsFrame).CornerRadius = UDim.new(0, 10)
+
+local MiniTopBar = Instance.new("Frame")
+MiniTopBar.Size = UDim2.new(1, 0, 0, 30)
+MiniTopBar.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+MiniTopBar.BorderSizePixel = 0
+MiniTopBar.ZIndex = 151
+MiniTopBar.Parent = MiniCmdsFrame
+Instance.new("UICorner", MiniTopBar).CornerRadius = UDim.new(0, 10)
+
+local MiniTitle = Instance.new("TextLabel")
+MiniTitle.Size = UDim2.new(1, -30, 1, 0)
+MiniTitle.Position = UDim2.new(0, 10, 0, 0)
+MiniTitle.BackgroundTransparency = 1
+MiniTitle.Font = Enum.Font.GothamBold
+MiniTitle.Text = "Mini Cmds Bar"
+MiniTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+MiniTitle.TextSize = 12
+MiniTitle.TextXAlignment = Enum.TextXAlignment.Left
+MiniTitle.ZIndex = 152
+MiniTitle.Parent = MiniTopBar
+
+local MiniCloseBtn = Instance.new("TextButton")
+MiniCloseBtn.Size = UDim2.new(0, 24, 0, 24)
+MiniCloseBtn.Position = UDim2.new(1, -27, 0.5, -12)
+MiniCloseBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+MiniCloseBtn.Font = Enum.Font.GothamBold
+MiniCloseBtn.Text = "X"
+MiniCloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MiniCloseBtn.TextSize = 12
+MiniCloseBtn.ZIndex = 153
+MiniCloseBtn.Parent = MiniTopBar
+Instance.new("UICorner", MiniCloseBtn).CornerRadius = UDim.new(0, 6)
+
+local MiniTextBox = Instance.new("TextBox")
+MiniTextBox.Size = UDim2.new(1, -20, 0, 30)
+MiniTextBox.Position = UDim2.new(0, 10, 0, 40)
+MiniTextBox.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+MiniTextBox.PlaceholderText = "command (e.g. fly)"
+MiniTextBox.Text = ""
+MiniTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+MiniTextBox.Font = Enum.Font.Gotham
+MiniTextBox.TextSize = 12
+MiniTextBox.ZIndex = 152
+MiniTextBox.Parent = MiniCmdsFrame
+Instance.new("UICorner", MiniTextBox).CornerRadius = UDim.new(0, 6)
+
+local MiniExecuteBtn = Instance.new("TextButton")
+MiniExecuteBtn.Size = UDim2.new(1, -20, 0, 26)
+MiniExecuteBtn.Position = UDim2.new(0, 10, 0, 76)
+MiniExecuteBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
+MiniExecuteBtn.Font = Enum.Font.GothamBold
+MiniExecuteBtn.Text = "Execute"
+MiniExecuteBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MiniExecuteBtn.TextSize = 12
+MiniExecuteBtn.ZIndex = 152
+MiniExecuteBtn.Parent = MiniCmdsFrame
+Instance.new("UICorner", MiniExecuteBtn).CornerRadius = UDim.new(0, 6)
+
+local function executeMiniCommand()
+    local cmdText = MiniTextBox.Text
+    if cmdText == "" then return end
+    
+    if string.sub(cmdText, 1, 1) ~= ";" then
+        cmdText = ";" .. cmdText
+    end
+
+    pcall(function()
+        local reqSignal = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
+        if reqSignal then
+            reqSignal = reqSignal:FindFirstChild("Signals")
+            if reqSignal then
+                reqSignal = reqSignal:FindFirstChild("RequestCommandSilent")
+                if reqSignal and reqSignal:IsA("RemoteFunction") then
+                    reqSignal:InvokeServer(cmdText)
+                    showNotification("Выполнено: " .. cmdText, false)
+                    return
+                end
+            end
+        end
+        showNotification("⚠️ Сигнал RequestCommandSilent не найден!", true)
+    end)
+end
+
+MiniExecuteBtn.MouseButton1Click:Connect(executeMiniCommand)
+
+MiniTextBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        executeMiniCommand()
+    end
+end)
+
+local isMiniBarVisible = false
+MiniCmdsToggleBtn.MouseButton1Click:Connect(function()
+    isMiniBarVisible = not isMiniBarVisible
+    MiniCmdsFrame.Visible = isMiniBarVisible
+    MiniCmdsToggleBtn.Text = isMiniBarVisible and "hide mini cmds bar" or "show mini cmds bar"
+end)
+
+MiniCloseBtn.MouseButton1Click:Connect(function()
+    isMiniBarVisible = false
+    MiniCmdsFrame.Visible = false
+    MiniCmdsToggleBtn.Text = "show mini cmds bar"
+end)
+
+-- 5. Кнопка "превратится в птичку (vip only)"
+local BirdMorphBtn = Instance.new("TextButton")
+BirdMorphBtn.Size = UDim2.new(1, 0, 0, 45)
+BirdMorphBtn.Position = UDim2.new(0, 0, 0, 230)
+BirdMorphBtn.BackgroundColor3 = Color3.fromRGB(140, 60, 220)
+BirdMorphBtn.Font = Enum.Font.GothamBold
+BirdMorphBtn.Text = "превратится в птичку (vip only)"
+BirdMorphBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+BirdMorphBtn.TextSize = 13
+BirdMorphBtn.Parent = BarboskinyPanel
+Instance.new("UICorner", BirdMorphBtn).CornerRadius = UDim.new(0, 6)
+
+BirdMorphBtn.MouseButton1Click:Connect(function()
+    showNotification("🐦 Превращение в птичку началось...", false)
+    task.spawn(function()
+        pcall(function()
+            local morphEvent = ReplicatedStorage:FindFirstChild("events")
+            if morphEvent then morphEvent = morphEvent:FindFirstChild("morphChange") end
+            if morphEvent and morphEvent:IsA("RemoteEvent") then
+                morphEvent:FireServer("Simple", "Bilder")
+            end
+        end)
+        
+        task.wait(1)
+        
+        pcall(function()
+            local sigs = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
+            if sigs then sigs = sigs:FindFirstChild("Signals") end
+            if sigs then
+                local req = sigs:FindFirstChild("RequestCommandSilent")
+                if req and req:IsA("RemoteFunction") then
+                    req:InvokeServer(";dinofy ")
+                    task.wait(1)
+                    req:InvokeServer(";undinofy ")
+                    task.wait(1)
+                    req:InvokeServer(";clearhats")
+                    task.wait(1)
+                    req:InvokeServer(";bundle me 30793322550438 ")
+                    task.wait(1)
+                    req:InvokeServer(";bundle me 139475292173258 ")
+                    showNotification("✨ Вы успешно превратились в птичку!", false)
+                end
+            end
+        end)
+    end)
 end)
 
 
@@ -1495,21 +1811,45 @@ end)
 
 RunService.Stepped:Connect(function()
     if noclipEnabled and player.Character then
-        for _, part in ipairs(player.Character:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
+        local char = player.Character
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
             end
         end
     end
 end)
 
 UserInputService.InputBegan:Connect(function(input, gpe)
+    if isBindingCmdBar and input.UserInputType == Enum.UserInputType.Keyboard then
+        if input.KeyCode == Enum.KeyCode.Escape or input.KeyCode == Enum.KeyCode.Backspace then
+            hubBinds.CmdBar = nil
+            CmdBarBindBtn.Text = "None"
+            CmdBarBindBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+            showNotification("Bind removed", false)
+        else
+            hubBinds.CmdBar = input.KeyCode
+            CmdBarBindBtn.Text = "["..input.KeyCode.Name.."]"
+            CmdBarBindBtn.TextColor3 = Color3.fromRGB(150, 255, 150)
+            showNotification("Bound to " .. input.KeyCode.Name, false)
+        end
+        isBindingCmdBar = false
+        saveData()
+        return
+    end
+
     if input.KeyCode == Enum.KeyCode.Delete and not isTweening then
         toggleHubVisibility()
         return
     end
 
     if not gpe then
+        if hubBinds.CmdBar and input.KeyCode == hubBinds.CmdBar then
+            triggerCmdBar()
+        end
+
         for _, emote in ipairs(savedEmotesEmotesTab) do
             if emote.keybind and input.KeyCode == emote.keybind then
                 playAnim(tostring(emote.assetId))

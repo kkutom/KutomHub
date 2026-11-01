@@ -1,0 +1,220 @@
+--Pest tool
+--Vibecoded
+--Сука не читай блять я делаю для веселья а не для тебя который любит смотреть скрипты так что иди нахуй
+
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local player = Players.LocalPlayer
+
+-- Удаляем старый GUI, если был
+if CoreGui:FindFirstChild("PestToolStandaloneGui") then
+    CoreGui.PestToolStandaloneGui:Destroy()
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "PestToolStandaloneGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = CoreGui
+
+local ToolGui = Instance.new("Frame")
+ToolGui.Name = "PestToolGui"
+ToolGui.Size = UDim2.new(0, 240, 0, 185)
+ToolGui.Position = UDim2.new(0.5, -120, 0.5, -92)
+ToolGui.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
+ToolGui.BorderSizePixel = 0
+ToolGui.Active = true
+ToolGui.Draggable = true
+ToolGui.Visible = false
+ToolGui.ZIndex = 300
+ToolGui.Parent = ScreenGui
+Instance.new("UICorner", ToolGui).CornerRadius = UDim.new(0, 8)
+
+local ToolBar = Instance.new("Frame")
+ToolBar.Size = UDim2.new(1, 0, 0, 35)
+ToolBar.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+ToolBar.BorderSizePixel = 0
+ToolBar.ZIndex = 301
+ToolBar.Parent = ToolGui
+Instance.new("UICorner", ToolBar).CornerRadius = UDim.new(0, 8)
+
+local ToolTitle = Instance.new("TextLabel")
+ToolTitle.Size = UDim2.new(1, 0, 1, 0)
+ToolTitle.BackgroundTransparency = 1
+ToolTitle.Font = Enum.Font.GothamBold
+ToolTitle.Text = "Pest Tool Панель"
+ToolTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToolTitle.TextSize = 14
+ToolTitle.ZIndex = 302
+ToolTitle.Parent = ToolBar
+
+local ToolToggleRow = Instance.new("Frame")
+ToolToggleRow.Size = UDim2.new(1, -20, 0, 35)
+ToolToggleRow.Position = UDim2.new(0, 10, 0, 45)
+ToolToggleRow.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+ToolToggleRow.BorderSizePixel = 0
+ToolToggleRow.ZIndex = 301
+ToolToggleRow.Parent = ToolGui
+Instance.new("UICorner", ToolToggleRow).CornerRadius = UDim.new(0, 6)
+
+local ToolToggleLabel = Instance.new("TextLabel")
+ToolToggleLabel.Size = UDim2.new(0, 120, 1, 0)
+ToolToggleLabel.Position = UDim2.new(0, 10, 0, 0)
+ToolToggleLabel.BackgroundTransparency = 1
+ToolToggleLabel.Font = Enum.Font.GothamMedium
+ToolToggleLabel.Text = "Аим по клику"
+ToolToggleLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+ToolToggleLabel.TextSize = 13
+ToolToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+ToolToggleLabel.ZIndex = 302
+ToolToggleLabel.Parent = ToolToggleRow
+
+local ToolToggleBtn = Instance.new("TextButton")
+ToolToggleBtn.Size = UDim2.new(0, 70, 0, 24)
+ToolToggleBtn.Position = UDim2.new(1, -80, 0.5, -12)
+ToolToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+ToolToggleBtn.Font = Enum.Font.GothamBold
+ToolToggleBtn.Text = "ВЫКЛ"
+ToolToggleBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+ToolToggleBtn.TextSize = 11
+ToolToggleBtn.ZIndex = 302
+ToolToggleBtn.Parent = ToolToggleRow
+Instance.new("UICorner", ToolToggleBtn).CornerRadius = UDim.new(0, 4)
+
+local LoopKillRow = Instance.new("Frame")
+LoopKillRow.Size = UDim2.new(1, -20, 0, 35)
+LoopKillRow.Position = UDim2.new(0, 10, 0, 85)
+LoopKillRow.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+LoopKillRow.BorderSizePixel = 0
+LoopKillRow.ZIndex = 301
+LoopKillRow.Parent = ToolGui
+Instance.new("UICorner", LoopKillRow).CornerRadius = UDim.new(0, 6)
+
+local LoopKillLabel = Instance.new("TextLabel")
+LoopKillLabel.Size = UDim2.new(0, 120, 1, 0)
+LoopKillLabel.Position = UDim2.new(0, 10, 0, 0)
+LoopKillLabel.BackgroundTransparency = 1
+LoopKillLabel.Font = Enum.Font.GothamMedium
+LoopKillLabel.Text = "ЛупКилл"
+LoopKillLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+LoopKillLabel.TextSize = 13
+LoopKillLabel.TextXAlignment = Enum.TextXAlignment.Left
+LoopKillLabel.ZIndex = 302
+LoopKillLabel.Parent = LoopKillRow
+
+local LoopKillBtn = Instance.new("TextButton")
+LoopKillBtn.Size = UDim2.new(0, 70, 0, 24)
+LoopKillBtn.Position = UDim2.new(1, -80, 0.5, -12)
+LoopKillBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+LoopKillBtn.Font = Enum.Font.GothamBold
+LoopKillBtn.Text = "ВЫКЛ"
+LoopKillBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+LoopKillBtn.TextSize = 11
+LoopKillBtn.ZIndex = 302
+LoopKillBtn.Parent = LoopKillRow
+Instance.new("UICorner", LoopKillBtn).CornerRadius = UDim.new(0, 4)
+
+local ToolStatusLabel = Instance.new("TextLabel")
+ToolStatusLabel.Size = UDim2.new(1, -20, 0, 30)
+ToolStatusLabel.Position = UDim2.new(0, 10, 0, 135)
+ToolStatusLabel.BackgroundTransparency = 1
+ToolStatusLabel.Font = Enum.Font.Gotham
+ToolStatusLabel.Text = "Статус: Выключено"
+ToolStatusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+ToolStatusLabel.TextSize = 11
+ToolStatusLabel.ZIndex = 302
+ToolStatusLabel.Parent = ToolGui
+
+local localPestAimActive = false
+local loopKillActive = false
+local targetPlayerToSpam = nil
+
+ToolToggleBtn.MouseButton1Click:Connect(function()
+    localPestAimActive = not localPestAimActive
+    if localPestAimActive then
+        ToolToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 180, 90)
+        ToolToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        ToolToggleBtn.Text = "ВКЛ"
+        ToolStatusLabel.Text = "Кликните на цель"
+        ToolStatusLabel.TextColor3 = Color3.fromRGB(60, 180, 90)
+    else
+        ToolToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+        ToolToggleBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+        ToolToggleBtn.Text = "ВЫКЛ"
+        ToolStatusLabel.Text = "Статус: Выключено"
+        ToolStatusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+        targetPlayerToSpam = nil
+        loopKillActive = false
+        LoopKillBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+        LoopKillBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+        LoopKillBtn.Text = "ВЫКЛ"
+    end
+end)
+
+LoopKillBtn.MouseButton1Click:Connect(function()
+    if not targetPlayerToSpam then return end
+    loopKillActive = not loopKillActive
+    if loopKillActive then
+        LoopKillBtn.BackgroundColor3 = Color3.fromRGB(60, 180, 90)
+        LoopKillBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        LoopKillBtn.Text = "ВКЛ"
+    else
+        LoopKillBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+        LoopKillBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+        LoopKillBtn.Text = "ВЫКЛ"
+    end
+end)
+
+local ToolObj = Instance.new("Tool")
+ToolObj.Name = "Pest Tool"
+ToolObj.RequiresHandle = true
+ToolObj.CanBeDropped = false
+
+local HandleObj = Instance.new("Part")
+HandleObj.Name = "Handle"
+HandleObj.Size = Vector3.new(1, 1, 3)
+HandleObj.BrickColor = BrickColor.new("Bright red")
+HandleObj.Material = Enum.Material.Neon
+HandleObj.Parent = ToolObj
+
+ToolObj.Equipped:Connect(function() ToolGui.Visible = true end)
+ToolObj.Unequipped:Connect(function() ToolGui.Visible = false end)
+
+ToolObj.Activated:Connect(function()
+    if not localPestAimActive then return end
+    local target = player:GetMouse().Target
+    if target and target.Parent then
+        local character = target.Parent
+        local hum = character:FindFirstChildOfClass("Humanoid")
+        if not hum and character.Parent and character.Parent:FindFirstChildOfClass("Humanoid") then
+            character = character.Parent
+        end
+        local p = Players:GetPlayerFromCharacter(character)
+        if p and p ~= player then
+            targetPlayerToSpam = p
+            ToolStatusLabel.Text = "Цель: " .. p.Name
+        end
+    end
+end)
+
+ToolObj.Parent = player.Backpack
+
+task.spawn(function()
+    while ToolObj and ToolObj.Parent do
+        if (localPestAimActive or loopKillActive) and targetPlayerToSpam then
+            local char = targetPlayerToSpam.Character
+            if char then
+                local head = char:FindFirstChild("Head")
+                if head then
+                    pcall(function()
+                        local event = player.Backpack:FindFirstChild("Pistol") and player.Backpack.Pistol:FindFirstChild("RemoteEvent")
+                        if not event and player.Character and player.Character:FindFirstChild("Pistol") then
+                            event = player.Character.Pistol:FindFirstChild("RemoteEvent")
+                        end
+                        if event then event:FireServer(head) end
+                    end)
+                end
+            end
+        end
+        task.wait(0.1)
+    end
+end)

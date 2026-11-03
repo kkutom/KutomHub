@@ -1,5 +1,5 @@
---BarboskinVisuals 1.1
---new version
+-- BarboskinVisuals 1.2
+--чугун
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -122,14 +122,14 @@ local function showNotification(message, isError)
     end)
 end
 
--- Главное окно (Полупрозрачный стиль)
+-- Главное окно
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(1, -200, 1, -120)
+MainFrame.Size = UDim2.new(1, -100, 1, -80)
 MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-MainFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 20)
-MainFrame.BackgroundTransparency = 0.2
+MainFrame.BackgroundColor3 = Color3.fromRGB(24, 28, 24)
+MainFrame.BackgroundTransparency = 0.3
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = false
@@ -137,7 +137,7 @@ MainFrame.ZIndex = 100
 MainFrame.Parent = ScreenGui
 
 local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 14)
+MainCorner.CornerRadius = UDim.new(0, 8)
 MainCorner.Parent = MainFrame
 
 local MainStroke = Instance.new("UIStroke")
@@ -146,7 +146,7 @@ MainStroke.Transparency = 0.5
 MainStroke.Thickness = 1.5
 MainStroke.Parent = MainFrame
 
--- Плавающая кнопка для телефонов
+-- Плавающая кнопка
 local FloatingBtn = Instance.new("TextButton")
 FloatingBtn.Name = "FloatingOpenBtn"
 FloatingBtn.Size = UDim2.new(0, 50, 0, 50)
@@ -162,7 +162,7 @@ FloatingBtn.Draggable = true
 FloatingBtn.Parent = ScreenGui
 Instance.new("UICorner", FloatingBtn).CornerRadius = UDim.new(0, 25)
 
--- Верхняя панель (Шапка)
+-- Шапка
 local TopBar = Instance.new("Frame")
 TopBar.Size = UDim2.new(1, 0, 0, 50)
 TopBar.BackgroundColor3 = Color3.fromRGB(24, 24, 32)
@@ -185,14 +185,14 @@ TopBarCover.ZIndex = 101
 TopBarCover.Parent = TopBar
 
 local TitleLabel = Instance.new("TextLabel")
-TitleLabel.Size = UDim2.new(0, 250, 1, 0)
-TitleLabel.Position = UDim2.new(0, 20, 0, 0)
+TitleLabel.Size = UDim2.new(1, -130, 1, 0)
+TitleLabel.Position = UDim2.new(0, 50, 0, 0)
 TitleLabel.BackgroundTransparency = 1
 TitleLabel.Font = Enum.Font.GothamBold
-TitleLabel.Text = "BarboskinVisuals"
+TitleLabel.Text = "Меню (Эмоции)"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 TitleLabel.TextSize = 18
-TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Center
 TitleLabel.ZIndex = 102
 TitleLabel.Parent = TopBar
 
@@ -253,24 +253,24 @@ end
 MinimizeBtn.MouseButton1Click:Connect(toggleHubVisibility)
 FloatingBtn.MouseButton1Click:Connect(toggleHubVisibility)
 
--- Панель категорий (Вкладки)
+-- Панель категорий
 local CategoryBar = Instance.new("Frame")
-CategoryBar.Size = UDim2.new(1, -40, 0, 40)
-CategoryBar.Position = UDim2.new(0, 20, 0, 60)
+CategoryBar.Size = UDim2.new(0, 230, 1, -72)
+CategoryBar.Position = UDim2.new(0, 12, 0, 60)
 CategoryBar.BackgroundTransparency = 1
 CategoryBar.ZIndex = 101
 CategoryBar.Parent = MainFrame
 
 local function createCategoryBtn(name, index)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0.19, -4, 1, 0)
-    btn.Position = UDim2.new((index - 1) * 0.202, 0, 0, 0)
-    btn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-    btn.BackgroundTransparency = 0.2
+    btn.Size = UDim2.new(1, 0, 0, 42)
+    btn.Position = UDim2.new(0, 0, 0, (index - 1) * 49)
+    btn.BackgroundColor3 = Color3.fromRGB(30, 32, 30)
+    btn.BackgroundTransparency = 0.12
     btn.Font = Enum.Font.GothamBold
     btn.Text = name
-    btn.TextColor3 = Color3.fromRGB(180, 180, 180)
-    btn.TextSize = 11
+    btn.TextColor3 = Color3.fromRGB(235, 235, 235)
+    btn.TextSize = 14
     btn.ZIndex = 102
     btn.Parent = CategoryBar
 
@@ -290,25 +290,41 @@ EmotesCatBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
 EmotesCatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 
 -- Панели контента
+local ContentFrame = Instance.new("Frame")
+ContentFrame.Size = UDim2.new(1, -260, 1, -66)
+ContentFrame.Position = UDim2.new(0, 248, 0, 54)
+ContentFrame.BackgroundColor3 = Color3.fromRGB(18, 22, 19)
+ContentFrame.BackgroundTransparency = 0.2
+ContentFrame.BorderSizePixel = 0
+ContentFrame.ZIndex = 101
+ContentFrame.Parent = MainFrame
+Instance.new("UICorner", ContentFrame).CornerRadius = UDim.new(0, 12)
+
+local ContentStroke = Instance.new("UIStroke")
+ContentStroke.Color = Color3.fromRGB(210, 220, 210)
+ContentStroke.Transparency = 0.7
+ContentStroke.Thickness = 1
+ContentStroke.Parent = ContentFrame
+
 local EmotesPanel = Instance.new("Frame")
-EmotesPanel.Size = UDim2.new(1, -40, 1, -115)
-EmotesPanel.Position = UDim2.new(0, 20, 0, 110)
+EmotesPanel.Size = UDim2.new(1, -272, 1, -72)
+EmotesPanel.Position = UDim2.new(0, 260, 0, 60)
 EmotesPanel.BackgroundTransparency = 1
 EmotesPanel.Visible = true
 EmotesPanel.ZIndex = 101
 EmotesPanel.Parent = MainFrame
 
 local MovementsPanel = Instance.new("Frame")
-MovementsPanel.Size = UDim2.new(1, -40, 1, -115)
-MovementsPanel.Position = UDim2.new(0, 20, 0, 110)
+MovementsPanel.Size = UDim2.new(1, -272, 1, -72)
+MovementsPanel.Position = UDim2.new(0, 260, 0, 60)
 MovementsPanel.BackgroundTransparency = 1
 MovementsPanel.Visible = false
 MovementsPanel.ZIndex = 101
 MovementsPanel.Parent = MainFrame
 
 local BarboskinyPanel = Instance.new("ScrollingFrame")
-BarboskinyPanel.Size = UDim2.new(1, -40, 1, -115)
-BarboskinyPanel.Position = UDim2.new(0, 20, 0, 110)
+BarboskinyPanel.Size = UDim2.new(1, -272, 1, -72)
+BarboskinyPanel.Position = UDim2.new(0, 260, 0, 60)
 BarboskinyPanel.BackgroundTransparency = 1
 BarboskinyPanel.BorderSizePixel = 0
 BarboskinyPanel.CanvasSize = UDim2.new(0, 0, 0, 400)
@@ -318,19 +334,19 @@ BarboskinyPanel.ZIndex = 101
 BarboskinyPanel.Parent = MainFrame
 
 local VipPanel = Instance.new("ScrollingFrame")
-VipPanel.Size = UDim2.new(1, -40, 1, -115)
-VipPanel.Position = UDim2.new(0, 20, 0, 110)
+VipPanel.Size = UDim2.new(1, -272, 1, -72)
+VipPanel.Position = UDim2.new(0, 260, 0, 60)
 VipPanel.BackgroundTransparency = 1
 VipPanel.BorderSizePixel = 0
-VipPanel.CanvasSize = UDim2.new(0, 0, 0, 400)
+VipPanel.CanvasSize = UDim2.new(0, 0, 0, 560)
 VipPanel.ScrollBarThickness = 6
 VipPanel.Visible = false
 VipPanel.ZIndex = 101
 VipPanel.Parent = MainFrame
 
 local VisualsPanel = Instance.new("ScrollingFrame")
-VisualsPanel.Size = UDim2.new(1, -40, 1, -115)
-VisualsPanel.Position = UDim2.new(0, 20, 0, 110)
+VisualsPanel.Size = UDim2.new(1, -272, 1, -72)
+VisualsPanel.Position = UDim2.new(0, 260, 0, 60)
 VisualsPanel.BackgroundTransparency = 1
 VisualsPanel.BorderSizePixel = 0
 VisualsPanel.CanvasSize = UDim2.new(0, 0, 0, 400)
@@ -338,6 +354,96 @@ VisualsPanel.ScrollBarThickness = 6
 VisualsPanel.Visible = false
 VisualsPanel.ZIndex = 101
 VisualsPanel.Parent = MainFrame
+
+local function createHeadOptionButton(name, yPosition, color)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1, 0, 0, 45)
+    button.Position = UDim2.new(0, 0, 0, yPosition)
+    button.BackgroundColor3 = color
+    button.Font = Enum.Font.GothamBold
+    button.Text = name
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.TextSize = 13
+    button.ZIndex = 102
+    button.Parent = VipPanel
+    Instance.new("UICorner", button).CornerRadius = UDim.new(0, 6)
+    return button
+end
+
+local Head1Btn = createHeadOptionButton("голова #1", 395, Color3.fromRGB(170, 70, 70))
+local Head2Btn = createHeadOptionButton("голова #2", 450, Color3.fromRGB(190, 160, 40))
+local Head3Btn = createHeadOptionButton("голова #3", 505, Color3.fromRGB(120, 70, 180))
+
+local categoryButtons = {EmotesCatBtn, MovementsCatBtn, BarboskinyCatBtn, VipCatBtn, VisualsCatBtn}
+
+local function applyResponsiveLayout()
+    local camera = Workspace.CurrentCamera
+    if not camera then return end
+
+    if camera.ViewportSize.X < 700 then
+        MainFrame.Size = UDim2.new(1, -16, 1, -80)
+        CategoryBar.Size = UDim2.new(1, -16, 0, 82)
+        CategoryBar.Position = UDim2.new(0, 8, 0, 56)
+        for index, button in ipairs(categoryButtons) do
+            local column = (index - 1) % 3
+            local row = math.floor((index - 1) / 3)
+            button.Size = UDim2.new(1 / 3, -6, 0, 38)
+            button.Position = UDim2.new(column / 3, column > 0 and 4 or 0, 0, row * 44)
+            button.TextSize = 12
+        end
+        ContentFrame.Size = UDim2.new(1, -16, 1, -156)
+        ContentFrame.Position = UDim2.new(0, 8, 0, 140)
+        EmotesPanel.Size = UDim2.new(1, -32, 1, -172)
+        MovementsPanel.Size = UDim2.new(1, -32, 1, -172)
+        BarboskinyPanel.Size = UDim2.new(1, -32, 1, -172)
+        VipPanel.Size = UDim2.new(1, -32, 1, -172)
+        VisualsPanel.Size = UDim2.new(1, -32, 1, -172)
+        EmotesPanel.Position = UDim2.new(0, 16, 0, 148)
+        MovementsPanel.Position = UDim2.new(0, 16, 0, 148)
+        BarboskinyPanel.Position = UDim2.new(0, 16, 0, 148)
+        VipPanel.Position = UDim2.new(0, 16, 0, 148)
+        VisualsPanel.Position = UDim2.new(0, 16, 0, 148)
+    else
+        MainFrame.Size = UDim2.new(1, -140, 1, -100)
+        CategoryBar.Size = UDim2.new(0, 230, 1, -72)
+        CategoryBar.Position = UDim2.new(0, 12, 0, 60)
+        for index, button in ipairs(categoryButtons) do
+            button.Size = UDim2.new(1, 0, 0, 42)
+            button.Position = UDim2.new(0, 0, 0, (index - 1) * 49)
+            button.TextSize = 14
+        end
+        ContentFrame.Size = UDim2.new(1, -260, 1, -66)
+        ContentFrame.Position = UDim2.new(0, 248, 0, 54)
+        EmotesPanel.Size = UDim2.new(1, -272, 1, -72)
+        MovementsPanel.Size = UDim2.new(1, -272, 1, -72)
+        BarboskinyPanel.Size = UDim2.new(1, -272, 1, -72)
+        VipPanel.Size = UDim2.new(1, -272, 1, -72)
+        VisualsPanel.Size = UDim2.new(1, -272, 1, -72)
+        EmotesPanel.Position = UDim2.new(0, 260, 0, 60)
+        MovementsPanel.Position = UDim2.new(0, 260, 0, 60)
+        BarboskinyPanel.Position = UDim2.new(0, 260, 0, 60)
+        VipPanel.Position = UDim2.new(0, 260, 0, 60)
+        VisualsPanel.Position = UDim2.new(0, 260, 0, 60)
+    end
+end
+
+applyResponsiveLayout()
+
+local function connectViewportSize(camera)
+    camera:GetPropertyChangedSignal("ViewportSize"):Connect(applyResponsiveLayout)
+end
+
+if Workspace.CurrentCamera then
+    connectViewportSize(Workspace.CurrentCamera)
+end
+
+Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+    local camera = Workspace.CurrentCamera
+    if camera then
+        connectViewportSize(camera)
+        applyResponsiveLayout()
+    end
+end)
 
 local function switchCategory(selected)
     EmotesCatBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
@@ -356,6 +462,7 @@ local function switchCategory(selected)
     BarboskinyPanel.Visible = (selected == "Барбоскины")
     VipPanel.Visible = (selected == "VIP")
     VisualsPanel.Visible = (selected == "Визуал")
+    TitleLabel.Text = "Меню (" .. selected .. ")"
 
     if selected == "Эмоции" then
         EmotesCatBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
@@ -821,7 +928,6 @@ local function applyBundle(bundleId, bundleName)
             end
             idleId = idleId or details.Items[1] and tostring(details.Items[1].Id)
             walkId = walkId or idleId runId = runId or walkId jumpId = jumpId or idleId fallId = fallId or jumpId
-            mySetts = {selectedPackData = {idleId, walkId, runId, jumpId, fallId}}
             applyMove(idleId, walkId, runId, jumpId, fallId)
             showNotification("Пак " .. bundleName .. " применен!", false)
         else showNotification("⚠️ Ошибка распаковки пака!", true) end
@@ -1024,8 +1130,7 @@ bundleBtn.MouseButton1Click:Connect(function()
 end)
 
 
--- ================== 3. ВКЛАДКА БАРБОСКИНЫ (Mini Cmds Bar) ==================
-
+-- ================== 3. ВКЛАДКА БАРБОСКИНЫ ==================
 local MiniCmdsToggleBtn = Instance.new("TextButton")
 MiniCmdsToggleBtn.Size = UDim2.new(1, 0, 0, 45)
 MiniCmdsToggleBtn.Position = UDim2.new(0, 0, 0, 10)
@@ -1089,6 +1194,7 @@ MiniTextBox.Position = UDim2.new(0, 10, 0, 40)
 MiniTextBox.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
 MiniTextBox.PlaceholderText = "Введите команду (например fly)"
 MiniTextBox.Text = ""
+MiniTextBox.ClearTextOnFocus = false
 MiniTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 MiniTextBox.Font = Enum.Font.Gotham
 MiniTextBox.TextSize = 12
@@ -1147,8 +1253,7 @@ MiniCloseBtn.MouseButton1Click:Connect(function()
 end)
 
 
--- ================== 4. VIP TAB (Птичка, Go Chaos + Тунг Тунг Сахур) ==================
-
+-- ================== 4. VIP TAB ==================
 local BirdMorphBtn = Instance.new("TextButton")
 BirdMorphBtn.Size = UDim2.new(1, 0, 0, 45)
 BirdMorphBtn.Position = UDim2.new(0, 0, 0, 10)
@@ -1194,9 +1299,56 @@ BirdMorphBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
+local ParrotMorphBtn = Instance.new("TextButton")
+ParrotMorphBtn.Size = UDim2.new(1, 0, 0, 45)
+ParrotMorphBtn.Position = UDim2.new(0, 0, 0, 65)
+ParrotMorphBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 120)
+ParrotMorphBtn.Font = Enum.Font.GothamBold
+ParrotMorphBtn.Text = "🦜 Превратиться в попугая"
+ParrotMorphBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ParrotMorphBtn.TextSize = 13
+ParrotMorphBtn.ZIndex = 102
+ParrotMorphBtn.Parent = VipPanel
+Instance.new("UICorner", ParrotMorphBtn).CornerRadius = UDim.new(0, 6)
+
+ParrotMorphBtn.MouseButton1Click:Connect(function()
+    showNotification("🦜 Превращение в попугая...", false)
+    task.spawn(function()
+        pcall(function()
+            local morphEvent = ReplicatedStorage:FindFirstChild("events")
+            if morphEvent then morphEvent = morphEvent:FindFirstChild("morphChange") end
+            if morphEvent and morphEvent:IsA("RemoteEvent") then
+                morphEvent:FireServer("Simple", "Bilder")
+            end
+        end)
+        task.wait(1)
+        pcall(function()
+            local sigs = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
+            if sigs then sigs = sigs:FindFirstChild("Signals") end
+            if sigs then
+                local req = sigs:FindFirstChild("RequestCommandSilent")
+                if req and req:IsA("RemoteFunction") then
+                    req:InvokeServer(";dinofy ")
+                    task.wait(1)
+                    req:InvokeServer(";undinofy ")
+                    task.wait(1)
+                    req:InvokeServer(";clearhats")
+                    task.wait(1)
+                    req:InvokeServer(";bundle me 30793322550438 ")
+                    task.wait(1)
+                    req:InvokeServer(";bundle me 139475292173258 ")
+                    task.wait(1)
+                    req:InvokeServer(";bundle me 9037217139013")
+                    showNotification("🦜 Превращение выполнено!", false)
+                end
+            end
+        end)
+    end)
+end)
+
 local GoChaosBtn = Instance.new("TextButton")
 GoChaosBtn.Size = UDim2.new(1, 0, 0, 45)
-GoChaosBtn.Position = UDim2.new(0, 0, 0, 65)
+GoChaosBtn.Position = UDim2.new(0, 0, 0, 120)
 GoChaosBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
 GoChaosBtn.Font = Enum.Font.GothamBold
 GoChaosBtn.Text = "💥 Go Chaos (Шапки хаоса)"
@@ -1232,10 +1384,9 @@ GoChaosBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
--- Новая кнопка: Превратиться в тунг тунг сахура
 local TungTungBtn = Instance.new("TextButton")
 TungTungBtn.Size = UDim2.new(1, 0, 0, 45)
-TungTungBtn.Position = UDim2.new(0, 0, 0, 120)
+TungTungBtn.Position = UDim2.new(0, 0, 0, 175)
 TungTungBtn.BackgroundColor3 = Color3.fromRGB(80, 100, 220)
 TungTungBtn.Font = Enum.Font.GothamBold
 TungTungBtn.Text = "🗿 Превратиться в тунг тунг сахура"
@@ -1280,9 +1431,184 @@ TungTungBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
+-- Новая кнопка: Превратиться в капибару
+local CapybaraBtn = Instance.new("TextButton")
+CapybaraBtn.Size = UDim2.new(1, 0, 0, 45)
+CapybaraBtn.Position = UDim2.new(0, 0, 0, 230)
+CapybaraBtn.BackgroundColor3 = Color3.fromRGB(160, 100, 50)
+CapybaraBtn.Font = Enum.Font.GothamBold
+CapybaraBtn.Text = "🐹 Превратиться в капибару"
+CapybaraBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CapybaraBtn.TextSize = 13
+CapybaraBtn.ZIndex = 102
+CapybaraBtn.Parent = VipPanel
+Instance.new("UICorner", CapybaraBtn).CornerRadius = UDim.new(0, 6)
 
--- ================== 5. ВКЛАДКА ВИЗУАЛ (Always Day + Delete Max Zoom) ==================
+CapybaraBtn.MouseButton1Click:Connect(function()
+    showNotification("🐹 Превращение в капибару...", false)
+    task.spawn(function()
+        -- 1. Морф в builder
+        pcall(function()
+            local morphEvent = ReplicatedStorage:FindFirstChild("events")
+            if morphEvent then morphEvent = morphEvent:FindFirstChild("morphChange") end
+            if morphEvent and morphEvent:IsA("RemoteEvent") then
+                morphEvent:FireServer("Simple", "Bilder")
+            end
+        end)
+        
+        task.wait(1)
+        
+        -- 2. Выполнение админ-команд по порядку
+        pcall(function()
+            local sigs = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
+            if sigs then sigs = sigs:FindFirstChild("Signals") end
+            if sigs then
+                local req = sigs:FindFirstChild("RequestCommandSilent")
+                if req and req:IsA("RemoteFunction") then
+                    req:InvokeServer(";dinofy ")
+                    task.wait(1)
+                    req:InvokeServer(";undinofy ")
+                    task.wait(1)
+                    req:InvokeServer(";clrhats")
+                    task.wait(1)
+                    req:InvokeServer(";bundle me 43")
+                    task.wait(1)
+                    req:InvokeServer(";bundle me 1349395")
+                    showNotification("🐹 Капибара успешно создана!", false)
+                end
+            end
+        end)
+    end)
+end)
 
+local CatMorphBtn = Instance.new("TextButton")
+CatMorphBtn.Size = UDim2.new(1, 0, 0, 45)
+CatMorphBtn.Position = UDim2.new(0, 0, 0, 285)
+CatMorphBtn.BackgroundColor3 = Color3.fromRGB(120, 120, 160)
+CatMorphBtn.Font = Enum.Font.GothamBold
+CatMorphBtn.Text = "🐱 Превратиться в кота"
+CatMorphBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CatMorphBtn.TextSize = 13
+CatMorphBtn.ZIndex = 102
+CatMorphBtn.Parent = VipPanel
+Instance.new("UICorner", CatMorphBtn).CornerRadius = UDim.new(0, 6)
+
+CatMorphBtn.MouseButton1Click:Connect(function()
+    showNotification("🐱 Превращение в кота...", false)
+    task.spawn(function()
+        pcall(function()
+            local morphEvent = ReplicatedStorage:FindFirstChild("events")
+            if morphEvent then morphEvent = morphEvent:FindFirstChild("morphChange") end
+            if morphEvent and morphEvent:IsA("RemoteEvent") then
+                morphEvent:FireServer("Simple", "Bilder")
+            end
+        end)
+
+        task.wait(1)
+
+        pcall(function()
+            local sigs = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
+            if sigs then sigs = sigs:FindFirstChild("Signals") end
+            if sigs then
+                local req = sigs:FindFirstChild("RequestCommandSilent")
+                if req and req:IsA("RemoteFunction") then
+                    req:InvokeServer(";dinofy")
+                    task.wait(1)
+                    req:InvokeServer(";undinofy")
+                    task.wait(1)
+                    req:InvokeServer(";clrhats")
+                    task.wait(1)
+                    req:InvokeServer(";bundle me 43")
+                    task.wait(1)
+                    req:InvokeServer(";bundle me 57405549324073")
+                    showNotification("🐱 Превращение выполнено!", false)
+                end
+            end
+        end)
+    end)
+end)
+
+local MinecraftMorphBtn = Instance.new("TextButton")
+MinecraftMorphBtn.Size = UDim2.new(1, 0, 0, 45)
+MinecraftMorphBtn.Position = UDim2.new(0, 0, 0, 340)
+MinecraftMorphBtn.BackgroundColor3 = Color3.fromRGB(70, 130, 80)
+MinecraftMorphBtn.Font = Enum.Font.GothamBold
+MinecraftMorphBtn.Text = "⛏️ Стать из майнкрафта"
+MinecraftMorphBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinecraftMorphBtn.TextSize = 13
+MinecraftMorphBtn.ZIndex = 102
+MinecraftMorphBtn.Parent = VipPanel
+Instance.new("UICorner", MinecraftMorphBtn).CornerRadius = UDim.new(0, 6)
+
+MinecraftMorphBtn.MouseButton1Click:Connect(function()
+    showNotification("Превращение в Minecraft-образ...", false)
+    task.spawn(function()
+        pcall(function()
+            local morphEvent = ReplicatedStorage:FindFirstChild("events")
+            if morphEvent then morphEvent = morphEvent:FindFirstChild("morphChange") end
+            if morphEvent and morphEvent:IsA("RemoteEvent") then
+                morphEvent:FireServer("Simple", "Bilder")
+            end
+        end)
+
+        task.wait(1)
+
+        pcall(function()
+            local sigs = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
+            if sigs then sigs = sigs:FindFirstChild("Signals") end
+            if sigs then
+                local req = sigs:FindFirstChild("RequestCommandSilent")
+                if req and req:IsA("RemoteFunction") then
+                    req:InvokeServer(";dinofy")
+                    task.wait(1)
+                    req:InvokeServer(";undinofy")
+                    task.wait(1)
+                    req:InvokeServer(";clrhats")
+                    task.wait(1)
+                    req:InvokeServer(";bundle me 111293482078246")
+                    task.wait(1)
+                    req:InvokeServer(";bundle me 46595595634504")
+                    task.wait(1)
+                    req:InvokeServer(";color me green")
+                    showNotification("Minecraft-образ готов.", false)
+                end
+            end
+        end)
+    end)
+end)
+
+local function runHeadCommands(firstCommand, secondCommand)
+    task.spawn(function()
+        pcall(function()
+            local sigs = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
+            if sigs then sigs = sigs:FindFirstChild("Signals") end
+            if sigs then
+                local req = sigs:FindFirstChild("RequestCommandSilent")
+                if req and req:IsA("RemoteFunction") then
+                    req:InvokeServer(firstCommand)
+                    task.wait(1)
+                    req:InvokeServer(secondCommand)
+                    showNotification("Голова применена.", false)
+                end
+            end
+        end)
+    end)
+end
+
+Head1Btn.MouseButton1Click:Connect(function()
+    runHeadCommands(";head me 14900390582", ";color me red")
+end)
+Head2Btn.MouseButton1Click:Connect(function()
+    runHeadCommands(";bundle me 8116", ";color me yellow")
+end)
+Head3Btn.MouseButton1Click:Connect(function()
+    runHeadCommands(";bundle me 8277", ";color me purple")
+end)
+
+
+-- ================== 5. ВКЛАДКА ВИЗУАЛ ==================
+
+-- Всегда день
 local AlwaysDayRow = Instance.new("Frame")
 AlwaysDayRow.Size = UDim2.new(1, 0, 0, 45)
 AlwaysDayRow.Position = UDim2.new(0, 0, 0, 10)
@@ -1349,7 +1675,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Delete Max Zoom
+-- Бесконечный зум (Max Zoom)
 local MaxZoomRow = Instance.new("Frame")
 MaxZoomRow.Size = UDim2.new(1, 0, 0, 45)
 MaxZoomRow.Position = UDim2.new(0, 0, 0, 65)

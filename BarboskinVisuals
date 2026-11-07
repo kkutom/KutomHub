@@ -1,6 +1,43 @@
---BarboskinVisuals 2.0
---чигун
+--BarboskinVisuals 2.1
 repeat task.wait() until game:IsLoaded()
+
+-- ================== ПРОВЕРКА ИГРЫ (PLACE ID ROUTER) ==================
+local currentPlaceId = game.PlaceId
+
+if currentPlaceId == 18403947333 then
+    -- Старые Барбоскины: загрузка chat bypass
+    pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local hdClient = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
+        local sigs = hdClient and hdClient:FindFirstChild("Signals")
+        local notice = sigs and (sigs:FindFirstChild("Notice") or sigs:FindFirstChild("Error"))
+        if notice and typeof(firesignal) == "function" then
+            firesignal(notice.OnClientEvent, {"Notice", "loading chat bypass..."})
+        else
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "Notice",
+                Text = "loading chat bypass...",
+                Duration = 5
+            })
+        end
+    end)
+    task.spawn(function()
+        pcall(function()
+            loadstring(game:HttpGet("https://loadstring.net/raw/Whpzi12Vja"))()
+        end)
+    end)
+    return
+elseif currentPlaceId ~= 11694980678 and currentPlaceId ~= 0 then
+    -- Если игра не Барбоскины (11694980678) и не тестовый режим (0), не запускаем
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "BarboskinVisuals",
+            Text = "Скрипт предназначен для игры Барбоскины (PlaceId 11694980678)",
+            Duration = 5
+        })
+    end)
+    return
+end
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -20,14 +57,20 @@ local function showNotification(titleText, msgText, isError)
     titleText = titleText or (isError and "Error" or "System")
     msgText = tostring(msgText or "")
 
-    -- 1. Нативное уведомление HD Admin через Signals.Error
+    -- 1. Нативное уведомление HD Admin через Signals (Notice для успеха, Error для ошибок)
     local nativeShown = false
     pcall(function()
         local hdClient = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
         local sigs = hdClient and hdClient:FindFirstChild("Signals")
-        local errSig = sigs and sigs:FindFirstChild("Error")
-        if errSig and typeof(firesignal) == "function" then
-            firesignal(errSig.OnClientEvent, {
+        local targetSig = nil
+        if isError then
+            targetSig = sigs and sigs:FindFirstChild("Error")
+        else
+            targetSig = sigs and (sigs:FindFirstChild("Notice") or sigs:FindFirstChild("Error"))
+        end
+
+        if targetSig and typeof(firesignal) == "function" then
+            firesignal(targetSig.OnClientEvent, {
                 tostring(titleText),
                 tostring(msgText)
             })
@@ -111,6 +154,51 @@ local function showNotification(titleText, msgText, isError)
             end)
         end)
     end)
+end
+
+-- ================== ХИНТ (ВЕРХНЯЯ СТРОКА HD ADMIN) ==================
+local function showHDHint(text, color)
+    local hintShown = false
+    pcall(function()
+        local hdClient = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
+        local sigs = hdClient and hdClient:FindFirstChild("Signals")
+        local hintSig = sigs and sigs:FindFirstChild("Hint")
+        if hintSig and typeof(firesignal) == "function" then
+            firesignal(hintSig.OnClientEvent, {
+                "Standard",
+                tostring(text or ""),
+                color or Color3.fromRGB(255, 200, 60)
+            })
+            hintShown = true
+        end
+    end)
+    if not hintShown then
+        showNotification("VIP", tostring(text or ""), false)
+    end
+end
+
+-- ================== ЦЕНТРАЛЬНОЕ СООБЩЕНИЕ HD ADMIN ==================
+local function showHDMessage(title, subTitle, text, color)
+    local msgShown = false
+    pcall(function()
+        local hdClient = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
+        local sigs = hdClient and hdClient:FindFirstChild("Signals")
+        local msgSig = sigs and sigs:FindFirstChild("Message")
+        if msgSig and typeof(firesignal) == "function" then
+            firesignal(msgSig.OnClientEvent, {
+                player,
+                "Standard",
+                tostring(title or "BarboskinVisuals"),
+                tostring(subTitle or ""),
+                tostring(text or ""),
+                color or Color3.fromRGB(255, 255, 255)
+            })
+            msgShown = true
+        end
+    end)
+    if not msgShown then
+        showHDHint(tostring(title or "") .. ": " .. tostring(text or ""), color)
+    end
 end
 
 -- ================== СОСТОЯНИЕ ВИЗУАЛА ==================
@@ -310,6 +398,7 @@ if not _G.BarboskinChatHooked then
 end
 
 local function runHeadCommands(firstCmd, secondCmd)
+    showHDHint("👤 Применение кастомной головы...", Color3.fromRGB(200, 150, 255))
     task.spawn(function()
         pcall(function()
             local sigs = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
@@ -320,7 +409,7 @@ local function runHeadCommands(firstCmd, secondCmd)
                     req:InvokeServer(firstCmd)
                     task.wait(1)
                     req:InvokeServer(secondCmd)
-                    showNotification("VIP", "Голова применена!", false)
+                    showHDHint("👤 Голова успешно применена!", Color3.fromRGB(85, 255, 85))
                 end
             end
         end)
@@ -343,7 +432,7 @@ local function runHDSequence(commands, notifTitle, notifMsg, delaySec)
                         end
                     end
                     if notifMsg then
-                        showNotification(notifTitle or "Майнкрафт", notifMsg, false)
+                        showHDHint(notifMsg, Color3.fromRGB(85, 255, 85))
                     end
                 end
             end
@@ -500,7 +589,9 @@ local MORPH_IMAGES = {
     ["Korblox Skeleton"] = DEFAULT_MORPH_IMAGE,
     ["Жирный хомяк"] = DEFAULT_MORPH_IMAGE,
     ["Крутой губка боб качок"] = DEFAULT_MORPH_IMAGE,
-    ["Зомби с твоими футболками"] = DEFAULT_MORPH_IMAGE,
+    ["Headless Horseman"] = DEFAULT_MORPH_IMAGE,
+    ["Korblox Deathspeaker"] = DEFAULT_MORPH_IMAGE,
+    ["Lord Korblox"] = DEFAULT_MORPH_IMAGE,
     ["🐹 Капибара"] = DEFAULT_MORPH_IMAGE,
     ["🐱 Кот"] = DEFAULT_MORPH_IMAGE,
     ["🐦 Птичка"] = DEFAULT_MORPH_IMAGE,
@@ -603,6 +694,34 @@ local function injectBarboskinVisuals()
         leftScroll.ScrollBarThickness = 3
     end)
 
+    -- ================== СИСТЕМА СОХРАНЕНИЯ НАСТРОЕК ==================
+    local SETTINGS_FILE = "BarboskinVisuals_Config.json"
+    local savedSettings = {}
+
+    local function loadSettings()
+        if typeof(readfile) == "function" and typeof(isfile) == "function" then
+            pcall(function()
+                if isfile(SETTINGS_FILE) then
+                    local data = readfile(SETTINGS_FILE)
+                    local HttpService = game:GetService("HttpService")
+                    savedSettings = HttpService:JSONDecode(data) or {}
+                end
+            end)
+        end
+    end
+
+    local function saveSettings()
+        if typeof(writefile) == "function" then
+            pcall(function()
+                local HttpService = game:GetService("HttpService")
+                local data = HttpService:JSONEncode(savedSettings)
+                writefile(SETTINGS_FILE, data)
+            end)
+        end
+    end
+
+    loadSettings()
+
     -- Конструктор вкладок
     local function createTab(tabName, tabId, headerColor)
         local btn = localScript.leftButton:Clone()
@@ -658,8 +777,13 @@ local function injectBarboskinVisuals()
                         b.desc.Text = desc
                         b.desc.Visible = true
                         b.TextLabel.Position = UDim2.new(image and 0.155 or 0.05, 0, 0.39, 0)
-                    elseif b:FindFirstChild("desc") then
-                        b.desc:Destroy()
+                        b.TextLabel.AnchorPoint = Vector2.new(0, 0.5)
+                    else
+                        if b:FindFirstChild("desc") then
+                            b.desc:Destroy()
+                        end
+                        b.TextLabel.Position = UDim2.new(image and 0.155 or 0.05, 0, 0.5, 0)
+                        b.TextLabel.AnchorPoint = Vector2.new(0, 0.5)
                     end
                     b.MouseButton1Click:Connect(callback)
                     return b
@@ -671,26 +795,48 @@ local function injectBarboskinVisuals()
                     return b
                 end
             end,
-            addToggle = function(text, defaultState, callbackOn, callbackOff)
+            addToggle = function(text, defaultState, callbackOn, callbackOff, settingKey)
+                local key = settingKey or text
+                local state = defaultState
+                if savedSettings[key] ~= nil then
+                    state = savedSettings[key]
+                end
+
                 local tog = localScript.toggle:Clone()
                 tog.Parent = pg
                 tog.TextLabel.Text = text
-                tog:SetAttribute("enable", defaultState)
-                tog.status.Text = defaultState and "Вкл." or "Выкл."
-                tog.status.TextColor3 = defaultState and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+                tog:SetAttribute("enable", state)
+                tog.status.Text = state and "Вкл." or "Выкл."
+                tog.status.TextColor3 = state and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
 
-                tog.MouseButton1Click:Connect(function()
-                    local cur = tog:GetAttribute("enable") == true
-                    local nxt = not cur
+                local function applyState(nxt)
                     tog:SetAttribute("enable", nxt)
                     tog.status.Text = nxt and "Вкл." or "Выкл."
                     tog.status.TextColor3 = nxt and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+                    savedSettings[key] = nxt
+                    saveSettings()
                     if nxt then
                         if callbackOn then callbackOn() end
                     else
                         if callbackOff then callbackOff() end
                     end
+                end
+
+                tog.MouseButton1Click:Connect(function()
+                    local cur = tog:GetAttribute("enable") == true
+                    applyState(not cur)
                 end)
+
+                -- Автоматическое включение при входе, если было сохранено состояние true
+                if state == true then
+                    task.spawn(function()
+                        task.wait(1.5)
+                        if callbackOn then
+                            pcall(callbackOn)
+                        end
+                    end)
+                end
+
                 return tog
             end,
             addTextBox = function(placeholder, onFocusLost)
@@ -714,38 +860,112 @@ local function injectBarboskinVisuals()
         }
     end
 
+    -- Отслеживание надетого морфа и респавна персонажа
+    _G.BarboskinIsMorphed = _G.BarboskinIsMorphed or false
+    _G.BarboskinIsBird = _G.BarboskinIsBird or false
+    _G.BarboskinCurrentAnimBundle = _G.BarboskinCurrentAnimBundle or nil
+
+    if not _G.BarboskinRespawnTracked then
+        _G.BarboskinRespawnTracked = true
+        local function setupChar(char)
+            _G.BarboskinIsMorphed = false
+            _G.BarboskinIsBird = false
+            _G.BarboskinCurrentAnimBundle = nil
+            _G.BarboskinActiveLocalMorph = nil
+            local hum = char:WaitForChild("Humanoid", 10)
+            if hum then
+                hum.Died:Connect(function()
+                    _G.BarboskinIsMorphed = false
+                    _G.BarboskinIsBird = false
+                    _G.BarboskinCurrentAnimBundle = nil
+                    _G.BarboskinActiveLocalMorph = nil
+                end)
+            end
+        end
+        if player.Character then setupChar(player.Character) end
+        player.CharacterAdded:Connect(setupChar)
+    end
+
+    -- Переменные выбранной анимации для VIP морфов
+    local selectedMorphAnimBundle = "43"
+    local selectedMorphAnimName = "Toy Animation"
+
     -- Вспомогательная функция для стандартных VIP морфов
-    local function runStandardVIPMorph(bundleId, morphTitle)
-        showNotification("VIP", "Превращение: " .. morphTitle .. "...", false)
-        task.spawn(function()
-            pcall(function()
-                local morphEvent = ReplicatedStorage:FindFirstChild("events")
-                if morphEvent then morphEvent = morphEvent:FindFirstChild("morphChange") end
-                if morphEvent and morphEvent:IsA("RemoteEvent") then
-                    morphEvent:FireServer("Simple", "Bilder")
-                end
-            end)
-            task.wait(1)
-            pcall(function()
-                local sigs = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
-                if sigs then sigs = sigs:FindFirstChild("Signals") end
-                if sigs then
-                    local req = sigs:FindFirstChild("RequestCommandSilent")
-                    if req and req:IsA("RemoteFunction") then
-                        req:InvokeServer(";dinofy")
-                        task.wait(1)
-                        req:InvokeServer(";undinofy")
-                        task.wait(1)
-                        req:InvokeServer(";clrhats")
-                        task.wait(1)
-                        req:InvokeServer(";bundle me 43")
-                        task.wait(1)
-                        req:InvokeServer(";bundle me " .. tostring(bundleId))
-                        showNotification("VIP", morphTitle .. " готов!", false)
+    local function runStandardVIPMorph(bundleId, morphTitle, fixedAnimBundle, alwaysApplyAnimation)
+        local morphAnimBundle = fixedAnimBundle or selectedMorphAnimBundle
+        local isAlreadyMorphed = (_G.BarboskinIsMorphed == true)
+        local char = player.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 then
+            isAlreadyMorphed = false
+            _G.BarboskinIsMorphed = false
+            _G.BarboskinIsBird = false
+        end
+
+        if isAlreadyMorphed then
+            -- БЫСТРАЯ СМЕНА МОРФА
+            showHDHint("⚡ Смена морфа на: " .. morphTitle .. "...", Color3.fromRGB(255, 200, 60))
+            task.spawn(function()
+                pcall(function()
+                    local sigs = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
+                    if sigs then sigs = sigs:FindFirstChild("Signals") end
+                    if sigs then
+                        local req = sigs:FindFirstChild("RequestCommandSilent")
+                        if req and req:IsA("RemoteFunction") then
+                            req:InvokeServer(";clrhats")
+                            task.wait(0.5)
+
+                            -- Если до этого была птица/попугай, обязательно возвращаем нормальную выбранную анимацию
+                            if alwaysApplyAnimation or _G.BarboskinIsBird or _G.BarboskinCurrentAnimBundle ~= morphAnimBundle then
+                                req:InvokeServer(";bundle me " .. tostring(morphAnimBundle))
+                                task.wait(0.5)
+                                _G.BarboskinIsBird = false
+                                _G.BarboskinCurrentAnimBundle = morphAnimBundle
+                            end
+
+                            req:InvokeServer(";bundle me " .. tostring(bundleId))
+                            _G.BarboskinIsMorphed = true
+                            showHDHint("✅ " .. morphTitle .. " надет!", Color3.fromRGB(85, 255, 85))
+                        end
                     end
-                end
+                end)
             end)
-        end)
+        else
+            -- ПОЛНЫЙ ЦИКЛ ПРЕВРАЩЕНИЯ С НУЛЯ
+            showHDHint("⏳ Превращение: " .. morphTitle .. "...", Color3.fromRGB(255, 200, 60))
+            task.spawn(function()
+                pcall(function()
+                    local morphEvent = ReplicatedStorage:FindFirstChild("events")
+                    if morphEvent then morphEvent = morphEvent:FindFirstChild("morphChange") end
+                    if morphEvent and morphEvent:IsA("RemoteEvent") then
+                        morphEvent:FireServer("Simple", "Bilder")
+                    end
+                end)
+                task.wait(1)
+                pcall(function()
+                    local sigs = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
+                    if sigs then sigs = sigs:FindFirstChild("Signals") end
+                    if sigs then
+                        local req = sigs:FindFirstChild("RequestCommandSilent")
+                        if req and req:IsA("RemoteFunction") then
+                            req:InvokeServer(";dinofy")
+                            task.wait(1)
+                            req:InvokeServer(";undinofy")
+                            task.wait(1)
+                            req:InvokeServer(";clrhats")
+                            task.wait(1)
+                            req:InvokeServer(";bundle me " .. tostring(morphAnimBundle))
+                            task.wait(1)
+                            req:InvokeServer(";bundle me " .. tostring(bundleId))
+                            _G.BarboskinIsMorphed = true
+                            _G.BarboskinIsBird = false
+                            _G.BarboskinCurrentAnimBundle = morphAnimBundle
+                            showHDHint("✅ " .. morphTitle .. " готов!", Color3.fromRGB(85, 255, 85))
+                        end
+                    end
+                end)
+            end)
+        end
     end
 
     -- ================== ВКЛАДКА 1: BarboskinVisuals ==================
@@ -754,7 +974,7 @@ local function injectBarboskinVisuals()
     tabBV.addTitle("Хаос")
 
     tabBV.addButton("💥 Go Chaos (13 редких шляп подряд)", function()
-        showNotification("VIP", "Запуск Go Chaos...", false)
+        showHDHint("💥 Запуск Go Chaos (13 шляп)...", Color3.fromRGB(255, 120, 60))
         task.spawn(function()
             pcall(function()
                 local sigs = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
@@ -772,12 +992,107 @@ local function injectBarboskinVisuals()
                             req:InvokeServer(";hat me " .. id)
                             task.wait(3)
                         end
-                        showNotification("VIP", "Go Chaos завершен!", false)
+                        showHDHint("✅ Go Chaos завершен!", Color3.fromRGB(85, 255, 85))
                     end
                 end
             end)
         end)
     end)
+
+    tabBV.addTitle("Фарм и АФК")
+
+    local isAFKActive = false
+    local antiAfkConnection = nil
+    local afkLoopRunning = false
+
+    local function enableAntiAFK()
+        if not antiAfkConnection then
+            pcall(function()
+                local vu = game:GetService("VirtualUser")
+                antiAfkConnection = player.Idled:Connect(function()
+                    pcall(function()
+                        vu:CaptureController()
+                        vu:ClickButton2(Vector2.new())
+                    end)
+                end)
+            end)
+        end
+        if not afkLoopRunning then
+            afkLoopRunning = true
+            task.spawn(function()
+                local vu = game:GetService("VirtualUser")
+                while isAFKActive do
+                    pcall(function()
+                        vu:CaptureController()
+                        vu:ClickButton2(Vector2.new())
+                    end)
+                    task.wait(60)
+                end
+                afkLoopRunning = false
+            end)
+        end
+    end
+
+    tabBV.addToggle("💤 AFK режим (Фарм валюты)", isAFKActive,
+        function()
+            isAFKActive = true
+            enableAntiAFK()
+            showHDHint("💤 Включение AFK режима: ;freeze -> ;jail -> ;ff...", Color3.fromRGB(100, 200, 255))
+            task.spawn(function()
+                pcall(function()
+                    local sigs = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
+                    if sigs then sigs = sigs:FindFirstChild("Signals") end
+                    local req = sigs and sigs:FindFirstChild("RequestCommandSilent")
+                    if req and req:IsA("RemoteFunction") then
+                        req:InvokeServer(";freeze")
+                        task.wait(0.5)
+                        req:InvokeServer(";jail")
+                        task.wait(0.5)
+                        req:InvokeServer(";ff")
+                        showHDHint("✅ 💤 AFK режим ВКЛЮЧЕН (Фарм активен, Anti-AFK включен)", Color3.fromRGB(85, 255, 85))
+                    end
+                end)
+            end)
+        end,
+        function()
+            isAFKActive = false
+            showHDHint("⚡ Отключение AFK режима: ;unfreeze -> ;unjail -> ;unff...", Color3.fromRGB(255, 200, 60))
+            task.spawn(function()
+                pcall(function()
+                    local sigs = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
+                    if sigs then sigs = sigs:FindFirstChild("Signals") end
+                    local req = sigs and sigs:FindFirstChild("RequestCommandSilent")
+                    if req and req:IsA("RemoteFunction") then
+                        req:InvokeServer(";unfreeze")
+                        task.wait(0.5)
+                        req:InvokeServer(";unjail")
+                        task.wait(0.5)
+                        req:InvokeServer(";unff")
+                        showHDHint("✅ ⚡ AFK режим выключен", Color3.fromRGB(85, 255, 85))
+                    end
+                end)
+            end)
+        end,
+        "AFK_Active"
+    )
+    tabBV.addComment("Выполняет ;freeze, ;jail, ;ff по очереди и защищает от кика за 20 минут афк.")
+
+    tabBV.addTitle("Сохранения")
+
+    tabBV.addButton("🗑️ Сбросить сохраненные настройки", function()
+        pcall(function()
+            if typeof(delfile) == "function" and typeof(isfile) == "function" then
+                if isfile(SETTINGS_FILE) then
+                    delfile(SETTINGS_FILE)
+                end
+            end
+            savedSettings = {}
+        end)
+        showNotification("Настройки", "Сохраненные настройки сброшены", false)
+        showHDHint("🗑️ Настройки сброшены!", Color3.fromRGB(255, 100, 100))
+    end)
+
+    tabBV.addComment("Настройки AFK, дня, зума и FOV сохраняются и восстанавливаются при запуске скрипта.")
 
     tabBV.addTitle("Визуал и камера")
 
@@ -789,7 +1104,8 @@ local function injectBarboskinVisuals()
         function()
             alwaysDayActive = false
             showNotification("Визуал", "Всегда день выключен", false)
-        end
+        end,
+        "AlwaysDay_Active"
     )
 
     tabBV.addToggle("Бесконечный зум (Max Zoom)", maxZoomActive,
@@ -801,8 +1117,18 @@ local function injectBarboskinVisuals()
             maxZoomActive = false
             pcall(function() player.CameraMaxZoomDistance = 400 end)
             showNotification("Визуал", "Бесконечный зум выключен", false)
-        end
+        end,
+        "MaxZoom_Active"
     )
+
+    -- Восстановление FOV при загрузке
+    if savedSettings["FOV"] and tonumber(savedSettings["FOV"]) then
+        pcall(function()
+            if Workspace.CurrentCamera then
+                Workspace.CurrentCamera.FieldOfView = tonumber(savedSettings["FOV"])
+            end
+        end)
+    end
 
     tabBV.addTextBox("Угол обзора FOV (введите число 60 - 120)", function(enter, text)
         local num = tonumber(text)
@@ -810,7 +1136,9 @@ local function injectBarboskinVisuals()
             pcall(function()
                 if Workspace.CurrentCamera then
                     Workspace.CurrentCamera.FieldOfView = num
-                    showNotification("Визуал", "FOV установлен на: " .. tostring(num), false)
+                    savedSettings["FOV"] = num
+                    saveSettings()
+                    showNotification("Визуал", "FOV установлен и сохранен: " .. tostring(num), false)
                 end
             end)
         else
@@ -843,128 +1171,157 @@ local function injectBarboskinVisuals()
     -- ================== ВКЛАДКА 2: VIP Морфы ==================
     local tabVIP = createTab("VIP морфы", "vip_morphs", "rgb(255,170,0)")
 
+    tabVIP.addTitle("Анимации для морфов")
+
+    local animStatusComment = tabVIP.addComment("Текущая анимация: " .. selectedMorphAnimName)
+
+    local animList = {
+        { name = "🧸 Toy Animation", id = "43" },
+        { name = "🧙 Mage Animation", id = "63" },
+        { name = "🧊 R6 Animation", id = "111293482078246" },
+        { name = "😎 Cool R6 Animation", id = "246071472429065" },
+        { name = "🦔 Sonic R6 Animation", id = "245160420458794" },
+        { name = "🧟 Zombie Animation", id = "80" },
+        { name = "✨ Levitation Animation", id = "79" },
+        { name = "🥷 Ninja Animation", id = "75" },
+    }
+
+    for _, anim in ipairs(animList) do
+        tabVIP.addButton(anim.name, function()
+            selectedMorphAnimBundle = anim.id
+            selectedMorphAnimName = anim.name
+            animStatusComment.Text = "Текущая анимация: " .. anim.name
+            showHDHint("🎬 Выбрана " .. anim.name, Color3.fromRGB(120, 200, 255))
+        end)
+    end
+
     tabVIP.addTitle("Эксклюзивные VIP морфы")
 
-    local function addVIPMorph(name, bundleId, desc)
+    local function addVIPMorph(name, bundleId)
         local img = MORPH_IMAGES[name] or DEFAULT_MORPH_IMAGE
-        tabVIP.addImageButton(name, img, desc or ("Bundle ID: " .. tostring(bundleId)), function()
+        tabVIP.addImageButton(name, img, nil, function()
             runStandardVIPMorph(bundleId, name)
         end)
     end
 
     -- Новые VIP морфы (порядок: builder -> ;dinofy -> ;undinofy -> ;clrhats -> ;bundle me 43 -> ;bundle me айди_бандла)
-    addVIPMorph("Мини птенчик", "1596802", "Bundle: 1596802")
-    addVIPMorph("Korblox Skeleton", "215764889286184", "Bundle: 215764889286184")
-    addVIPMorph("Жирный хомяк", "57388270771867", "Bundle: 57388270771867")
-    addVIPMorph("Крутой губка боб качок", "74960956860076", "Bundle: 74960956860076")
-    addVIPMorph("Зомби с твоими футболками", "88811064459977", "Bundle: 88811064459977")
+    addVIPMorph("Мини птенчик", "1596802")
+    addVIPMorph("Korblox Skeleton", "215764889286184")
+    addVIPMorph("Жирный хомяк", "57388270771867")
+    addVIPMorph("Крутой губка боб качок", "74960956860076")
+    addVIPMorph("Headless Horseman", "201")
+    addVIPMorph("Korblox Deathspeaker", "192")
+    addVIPMorph("Lord Korblox", "154")
+
+    -- Новые морфы при быстрой смене повторно применяют анимацию.
+    local newMorphs = {
+        {"Monster Energy", "204241136097320", "154816754181611"},
+        {"Doritos", "12112938833792", "154816754181611"},
+        {"Pringles", "130551609002548", "154816754181611"},
+        {"Крутой скелетон", "93891314109347"},
+        {"Обычный Скелет", "65938423673235"},
+        {"Смешной Питбуль", "148559408190760"},
+        {"r6 hologram", "102578509818153"},
+        {"Сова из Grow a Garden", "4556339260596"},
+        {"Крокодил", "250578490923750"},
+        {"iба чотко", "54041010964340"},
+        {"Крутая картошка", "671"},
+        {"Черный Скелет", "96564142678478"},
+        {"Меха кот", "63026"},
+    }
+    for _, morph in ipairs(newMorphs) do
+        local name, bundleId, fixedAnimBundle = morph[1], morph[2], morph[3]
+        tabVIP.addImageButton(name, DEFAULT_MORPH_IMAGE, nil, function()
+            runStandardVIPMorph(bundleId, name, fixedAnimBundle, true)
+        end)
+    end
 
     -- Остальные наши VIP морфы
-    addVIPMorph("🐹 Капибара", "1349395", "Милая капибара")
-    addVIPMorph("🐱 Кот", "57405549324073", "Кастомный кот")
+    addVIPMorph("🐹 Капибара", "1349395")
+    addVIPMorph("🐱 Кот", "57405549324073")
 
+    -- Птичка и Попугай используют свой собственный фиксированный ID анимации (30793322550438)
     local birdImg = MORPH_IMAGES["🐦 Птичка"] or DEFAULT_MORPH_IMAGE
-    tabVIP.addImageButton("🐦 Птичка", birdImg, "Кастомная птичка", function()
-        showNotification("VIP", "Превращение в птичку...", false)
+    tabVIP.addImageButton("🐦 Птичка", birdImg, nil, function()
+        local isAlreadyMorphed = (_G.BarboskinIsMorphed == true)
+        showHDHint("⏳ Превращение в птичку...", Color3.fromRGB(255, 200, 60))
         task.spawn(function()
-            pcall(function()
-                local morphEvent = ReplicatedStorage:FindFirstChild("events")
-                if morphEvent then morphEvent = morphEvent:FindFirstChild("morphChange") end
-                if morphEvent and morphEvent:IsA("RemoteEvent") then
-                    morphEvent:FireServer("Simple", "Bilder")
-                end
-            end)
-            task.wait(1)
             pcall(function()
                 local sigs = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
                 if sigs then sigs = sigs:FindFirstChild("Signals") end
-                if sigs then
-                    local req = sigs:FindFirstChild("RequestCommandSilent")
-                    if req and req:IsA("RemoteFunction") then
-                        req:InvokeServer(";dinofy")
-                        task.wait(1)
-                        req:InvokeServer(";undinofy")
-                        task.wait(1)
-                        req:InvokeServer(";clearhats")
-                        task.wait(1)
-                        req:InvokeServer(";bundle me 30793322550438")
-                        task.wait(1)
-                        req:InvokeServer(";bundle me 139475292173258")
-                        showNotification("VIP", "🐦 Птичка готова!", false)
+                local req = sigs and sigs:FindFirstChild("RequestCommandSilent")
+                if not req or not req:IsA("RemoteFunction") then return end
+
+                if not isAlreadyMorphed then
+                    local morphEvent = ReplicatedStorage:FindFirstChild("events")
+                    if morphEvent then morphEvent = morphEvent:FindFirstChild("morphChange") end
+                    if morphEvent and morphEvent:IsA("RemoteEvent") then
+                        morphEvent:FireServer("Simple", "Bilder")
                     end
+                    task.wait(1)
+                    req:InvokeServer(";dinofy")
+                    task.wait(1)
+                    req:InvokeServer(";undinofy")
+                    task.wait(1)
                 end
+
+                req:InvokeServer(";clrhats")
+                task.wait(0.5)
+                req:InvokeServer(";bundle me 30793322550438")
+                task.wait(0.5)
+                req:InvokeServer(";bundle me 139475292173258")
+                _G.BarboskinIsMorphed = true
+                _G.BarboskinIsBird = true
+                showHDHint("✅ 🐦 Птичка надета!", Color3.fromRGB(85, 255, 85))
             end)
         end)
     end)
 
     local parrotImg = MORPH_IMAGES["🦜 Попугай"] or DEFAULT_MORPH_IMAGE
-    tabVIP.addImageButton("🦜 Попугай", parrotImg, "Кастомный попугай", function()
-        showNotification("VIP", "Превращение в попугая...", false)
+    tabVIP.addImageButton("🦜 Попугай", parrotImg, nil, function()
+        local isAlreadyMorphed = (_G.BarboskinIsMorphed == true)
+        showHDHint("⏳ Превращение в попугая...", Color3.fromRGB(255, 200, 60))
         task.spawn(function()
-            pcall(function()
-                local morphEvent = ReplicatedStorage:FindFirstChild("events")
-                if morphEvent then morphEvent = morphEvent:FindFirstChild("morphChange") end
-                if morphEvent and morphEvent:IsA("RemoteEvent") then
-                    morphEvent:FireServer("Simple", "Bilder")
-                end
-            end)
-            task.wait(1)
             pcall(function()
                 local sigs = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
                 if sigs then sigs = sigs:FindFirstChild("Signals") end
-                if sigs then
-                    local req = sigs:FindFirstChild("RequestCommandSilent")
-                    if req and req:IsA("RemoteFunction") then
-                        req:InvokeServer(";dinofy")
-                        task.wait(1)
-                        req:InvokeServer(";undinofy")
-                        task.wait(1)
-                        req:InvokeServer(";clearhats")
-                        task.wait(1)
-                        req:InvokeServer(";bundle me 30793322550438")
-                        task.wait(1)
-                        req:InvokeServer(";bundle me 139475292173258")
-                        task.wait(1)
-                        req:InvokeServer(";bundle me 9037217139013")
-                        showNotification("VIP", "🦜 Попугай готов!", false)
+                local req = sigs and sigs:FindFirstChild("RequestCommandSilent")
+                if not req or not req:IsA("RemoteFunction") then return end
+
+                if not isAlreadyMorphed then
+                    local morphEvent = ReplicatedStorage:FindFirstChild("events")
+                    if morphEvent then morphEvent = morphEvent:FindFirstChild("morphChange") end
+                    if morphEvent and morphEvent:IsA("RemoteEvent") then
+                        morphEvent:FireServer("Simple", "Bilder")
                     end
+                    task.wait(1)
+                    req:InvokeServer(";dinofy")
+                    task.wait(1)
+                    req:InvokeServer(";undinofy")
+                    task.wait(1)
                 end
+
+                req:InvokeServer(";clrhats")
+                task.wait(0.5)
+                req:InvokeServer(";bundle me 30793322550438")
+                task.wait(0.5)
+                req:InvokeServer(";bundle me 139475292173258")
+                task.wait(0.5)
+                req:InvokeServer(";bundle me 9037217139013")
+                _G.BarboskinIsMorphed = true
+                _G.BarboskinIsBird = true
+                showHDHint("✅ 🦜 Попугай надет!", Color3.fromRGB(85, 255, 85))
             end)
         end)
     end)
 
-    local sahurImg = MORPH_IMAGES["🗿 Тунг тунг сахур"] or DEFAULT_MORPH_IMAGE
-    tabVIP.addImageButton("🗿 Тунг тунг сахур", sahurImg, "Тунг тунг сахур", function()
-        showNotification("VIP", "Превращение в тунг тунг сахура...", false)
-        task.spawn(function()
-            pcall(function()
-                local morphEvent = ReplicatedStorage:FindFirstChild("events")
-                if morphEvent then morphEvent = morphEvent:FindFirstChild("morphChange") end
-                if morphEvent and morphEvent:IsA("RemoteEvent") then
-                    morphEvent:FireServer("Simple", "Bilder")
-                end
-            end)
-            task.wait(1)
-            pcall(function()
-                local sigs = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
-                if sigs then sigs = sigs:FindFirstChild("Signals") end
-                if sigs then
-                    local req = sigs:FindFirstChild("RequestCommandSilent")
-                    if req and req:IsA("RemoteFunction") then
-                        req:InvokeServer(";dinofy")
-                        task.wait(1)
-                        req:InvokeServer(";undinofy")
-                        task.wait(1)
-                        req:InvokeServer(";bundle me 56")
-                        task.wait(1)
-                        req:InvokeServer(";bundle me 164815366314625")
-                        task.wait(1)
-                        req:InvokeServer(";clrhats")
-                        showNotification("VIP", "🗿 Тунг тунг сахур создан!", false)
-                    end
-                end
-            end)
-        end)
+    addVIPMorph("🗿 Тунг тунг сахур", "164815366314625")
+
+    tabVIP.addButton("🔄 Надеть с нуля (сброс быстрого режима)", function()
+        _G.BarboskinIsMorphed = false
+        _G.BarboskinIsBird = false
+        _G.BarboskinCurrentAnimBundle = nil
+        showHDHint("🔄 Режим сброшен: следующий морф будет надет с нуля!", Color3.fromRGB(255, 255, 255))
     end)
 
     -- ================== ВКЛАДКА 3: Майнкрафт ==================
@@ -973,8 +1330,8 @@ local function injectBarboskinVisuals()
     tabMC.addTitle("Морфы")
 
     local steveImg = MORPH_IMAGES["⛏️ Превратиться в Стива (Майнкрафт)"] or DEFAULT_MORPH_IMAGE
-    tabMC.addImageButton("⛏️ Превратиться в Стива (Майнкрафт)", steveImg, "Minecraft Стив", function()
-        showNotification("VIP", "Превращение в Minecraft-образ...", false)
+    tabMC.addImageButton("⛏️ Превратиться в Стива (Майнкрафт)", steveImg, nil, function()
+        showHDHint("⏳ Превращение в Minecraft-образ (Стив)...", Color3.fromRGB(85, 255, 85))
         task.spawn(function()
             pcall(function()
                 local morphEvent = ReplicatedStorage:FindFirstChild("events")
@@ -1001,7 +1358,9 @@ local function injectBarboskinVisuals()
                         req:InvokeServer(";bundle me 46595595634504")
                         task.wait(1)
                         req:InvokeServer(";color me green")
-                        showNotification("VIP", "⛏️ Minecraft-образ готов!", false)
+                        _G.BarboskinIsMorphed = true
+                        _G.BarboskinIsBird = false
+                        showHDHint("✅ ⛏️ Minecraft-образ (Стив) готов!", Color3.fromRGB(85, 255, 85))
                     end
                 end
             end)
@@ -1025,20 +1384,20 @@ local function injectBarboskinVisuals()
     tabMC.addTitle("Одежда")
 
     tabMC.addButton("💎 Алмазная броня", function()
-        showNotification("Майнкрафт", "Надеваем алмазную броню...", false)
+        showHDHint("💎 Надеваем алмазную броню...", Color3.fromRGB(100, 200, 255))
         runHDSequence({
             ";shirt me 18304258147",
             ";pants me 16682700825",
             ";hat me 129844973837753"
-        }, "Майнкрафт", "💎 Алмазная броня надета!", 0.5)
+        }, "Майнкрафт", "✅ 💎 Алмазная броня надета!", 0.5)
     end)
 
     tabMC.addButton("✨ Золотой скин", function()
-        showNotification("Майнкрафт", "Надеваем золотой скин...", false)
+        showHDHint("✨ Надеваем золотой скин...", Color3.fromRGB(255, 215, 0))
         runHDSequence({
             ";shirt me 11629818471",
             ";pants me 11629818927"
-        }, "Майнкрафт", "✨ Золотой скин надет!", 0.5)
+        }, "Майнкрафт", "✅ ✨ Золотой скин надет!", 0.5)
     end)
 
     return true

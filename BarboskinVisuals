@@ -1,4 +1,4 @@
---BarboskinVisuals 2.2
+--BarboskinVisuals 2.3
 repeat task.wait() until game:IsLoaded()
 
 -- ================== ПРОВЕРКА ИГРЫ (PLACE ID ROUTER) ==================
@@ -806,6 +806,462 @@ local function getCustomImage(url, fileName)
 end
 
 -- ================== ФУНКЦИЯ ВНЕДРЕНИЯ ВКЛАДКИ ==================
+local CUSTOM_SKINSETS_FILE = "BarboskinVisuals_Skinsets.json"
+local customSkinsets, catalogCart = {}, {}
+local refreshCustomSkinsets
+local function loadCustomSkinsets()
+    customSkinsets = {}
+    if typeof(isfile) ~= "function" or typeof(readfile) ~= "function" then return end
+    local ok, result = pcall(function()
+        if not isfile(CUSTOM_SKINSETS_FILE) then return {} end
+        return game:GetService("HttpService"):JSONDecode(readfile(CUSTOM_SKINSETS_FILE))
+    end)
+    if ok and type(result) == "table" then customSkinsets = result
+    elseif not ok then warn("Не удалось загрузить скинсеты: " .. tostring(result)) end
+end
+local function saveCustomSkinsets(sets)
+    if typeof(writefile) ~= "function" or typeof(readfile) ~= "function" then return false end
+    local ok, err = pcall(function()
+        local json = game:GetService("HttpService"):JSONEncode(sets)
+        writefile(CUSTOM_SKINSETS_FILE, json)
+    end)
+    if not ok then warn("Не удалось сохранить скинсеты: " .. tostring(err)) end
+    return ok
+end
+
+-- Поиск аксессуаров Roblox; запросы выполняются средствами исполнителя.
+local function openAccessoryCatalog()
+    local previous = playerGui:FindFirstChild("BarboskinAccessoryCatalog")
+    if previous then previous:Destroy() end
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "BarboskinAccessoryCatalog"
+    gui.ResetOnSpawn = false
+    gui.DisplayOrder = 1000
+    gui.Parent = playerGui
+    local panel = Instance.new("Frame")
+    panel.AnchorPoint = Vector2.new(0.5, 0.5)
+    panel.Position = UDim2.fromScale(0.5, 0.5)
+    panel.Size = UDim2.new(0.86, 0, 0.82, 0)
+    panel.BackgroundColor3 = Color3.fromRGB(28, 31, 43)
+    panel.BorderSizePixel = 0
+    panel.Parent = gui
+    local sizeConstraint = Instance.new("UISizeConstraint")
+    sizeConstraint.MaxSize = Vector2.new(950, 650)
+    sizeConstraint.Parent = panel
+    local rounded = Instance.new("UICorner")
+    rounded.CornerRadius = UDim.new(0, 12)
+    rounded.Parent = panel
+    local function label(parent, text, position, size, textSize)
+        local item = Instance.new("TextLabel")
+        item.BackgroundTransparency = 1
+        item.Position, item.Size = position, size
+        item.Font = Enum.Font.Gotham
+        item.TextColor3 = Color3.fromRGB(240, 242, 250)
+        item.TextSize = textSize or 16
+        item.TextXAlignment = Enum.TextXAlignment.Left
+        item.TextWrapped = true
+        item.Text = text
+        item.Parent = parent
+        return item
+    end
+    local function button(parent, text, position, size)
+        local item = Instance.new("TextButton")
+        item.Position, item.Size = position, size
+        item.BackgroundColor3 = Color3.fromRGB(64, 70, 91)
+        item.BorderSizePixel = 0
+        item.Font = Enum.Font.GothamBold
+        item.TextColor3 = Color3.new(1, 1, 1)
+        item.TextSize = 14
+        item.TextWrapped = true
+        item.Text = text
+        item.Parent = parent
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0, 7)
+        c.Parent = item
+        return item
+    end
+    label(panel, "Каталог Roblox", UDim2.new(0, 16, 0, 4), UDim2.new(1, -72, 0, 38), 20).Font = Enum.Font.GothamBold
+    local close = button(panel, "✕", UDim2.new(1, -46, 0, 8), UDim2.fromOffset(36, 32))
+    close.MouseButton1Click:Connect(function() gui:Destroy() end)
+    local search = Instance.new("TextBox")
+    search.Position = UDim2.fromOffset(16, 48)
+    search.Size = UDim2.new(1, -145, 0, 36)
+    search.BackgroundColor3 = Color3.fromRGB(45, 49, 65)
+    search.TextColor3 = Color3.new(1, 1, 1)
+    search.PlaceholderColor3 = Color3.fromRGB(174, 179, 196)
+    search.PlaceholderText = "Название аксессуара"
+    search.ClearTextOnFocus = false
+    search.Text = ""
+    search.Font = Enum.Font.Gotham
+    search.TextSize = 16
+    search.Parent = panel
+    local searchCorner = Instance.new("UICorner")
+    searchCorner.CornerRadius = UDim.new(0, 7)
+    searchCorner.Parent = search
+    local searchButton = button(panel, "Искать", UDim2.new(1, -120, 0, 48), UDim2.fromOffset(104, 36))
+    local status = label(panel, "Введите название и нажмите «Искать»", UDim2.new(0, 16, 0, 88), UDim2.new(1, -32, 0, 32), 13)
+    local list = Instance.new("ScrollingFrame")
+    list.Position = UDim2.fromOffset(16, 124)
+    list.Size = UDim2.new(0.48, -20, 1, -176)
+    list.BackgroundColor3 = Color3.fromRGB(38, 42, 56)
+    list.BorderSizePixel = 0
+    list.ScrollBarThickness = 5
+    list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    list.CanvasSize = UDim2.new()
+    list.Parent = panel
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 4)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Parent = list
+    local preview = Instance.new("ImageLabel")
+    preview.BackgroundTransparency = 1
+    preview.Position = UDim2.new(0.51, 0, 0, 124)
+    preview.Size = UDim2.new(0.2, 0, 0, 110)
+    preview.ScaleType = Enum.ScaleType.Fit
+    preview.Parent = panel
+    local info = label(panel, "Выберите аксессуар", UDim2.new(0.72, 0, 0, 124), UDim2.new(0.27, -8, 0, 110), 14)
+    info.TextYAlignment = Enum.TextYAlignment.Top
+    local descriptionFrame = Instance.new("ScrollingFrame")
+    descriptionFrame.Position = UDim2.new(0.51, 0, 0, 240)
+    descriptionFrame.Size = UDim2.new(0.47, 0, 1, -348)
+    descriptionFrame.BackgroundColor3 = Color3.fromRGB(38, 42, 56)
+    descriptionFrame.BorderSizePixel = 0
+    descriptionFrame.ScrollBarThickness = 5
+    descriptionFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    descriptionFrame.CanvasSize = UDim2.new()
+    descriptionFrame.Parent = panel
+    local description = label(descriptionFrame, "", UDim2.new(), UDim2.new(1, -10, 0, 0), 14)
+    description.AutomaticSize = Enum.AutomaticSize.Y
+    description.TextYAlignment = Enum.TextYAlignment.Top
+    local copy = button(panel, "Скопировать ID", UDim2.new(0.51, 0, 1, -98), UDim2.new(0.225, 0, 0, 40))
+    local wear = button(panel, ";hat me ID", UDim2.new(0.755, 0, 1, -98), UDim2.new(0.225, 0, 0, 40))
+    local nextButton = button(panel, "Далее →", UDim2.new(0, 16, 1, -48), UDim2.new(0.48, -20, 0, 36))
+    local creator = search:Clone()
+    creator.PlaceholderText = "Автор или группа (необязательно)"
+    creator.Text = ""
+    creator.Position = UDim2.fromOffset(16, 92)
+    creator.Size = UDim2.new(0.61, -20, 0, 38)
+    creator.Parent = panel
+    local kind = "accessory"
+    local kindButton = button(panel, "Аксессуары", UDim2.new(0.61, 0, 0, 92), UDim2.new(0.39, -16, 0, 38))
+    local function adjustCatalogLayout()
+        local compact = panel.AbsoluteSize.X < 600
+        panel.Size = UDim2.new(0.96, 0, 0.95, 0)
+        status.Position = UDim2.fromOffset(16, 132)
+        status.Size = UDim2.new(1, -32, 0, 28)
+        if compact then
+            list.Position = UDim2.fromOffset(16, 162)
+            list.Size = UDim2.new(1, -32, 0.30, -20)
+            nextButton.Position = UDim2.new(0, 16, 0.30, 146)
+            nextButton.Size = UDim2.new(1, -32, 0, 36)
+            preview.Position = UDim2.new(0, 16, 0.30, 188)
+            preview.Size = UDim2.fromOffset(82, 82)
+            info.Position = UDim2.new(0, 106, 0.30, 188)
+            info.Size = UDim2.new(1, -122, 0, 82)
+            descriptionFrame.Position = UDim2.new(0, 16, 0.30, 274)
+            descriptionFrame.Size = UDim2.new(1, -32, 0.70, -332)
+            copy.Position = UDim2.new(0, 16, 1, -49)
+            copy.Size = UDim2.new(0.5, -22, 0, 40)
+            wear.Position = UDim2.new(0.5, 6, 1, -49)
+            wear.Size = UDim2.new(0.5, -22, 0, 40)
+        else
+            list.Position = UDim2.fromOffset(16, 162)
+            list.Size = UDim2.new(0.48, -20, 1, -214)
+            nextButton.Position = UDim2.new(0, 16, 1, -48)
+            nextButton.Size = UDim2.new(0.48, -20, 0, 36)
+            preview.Position = UDim2.new(0.51, 0, 0, 162)
+            preview.Size = UDim2.new(0.2, 0, 0, 110)
+            info.Position = UDim2.new(0.72, 0, 0, 162)
+            info.Size = UDim2.new(0.27, -8, 0, 110)
+            descriptionFrame.Position = UDim2.new(0.51, 0, 0, 278)
+            descriptionFrame.Size = UDim2.new(0.47, 0, 1, -386)
+            copy.Position = UDim2.new(0.51, 0, 1, -98)
+            copy.Size = UDim2.new(0.225, 0, 0, 40)
+            wear.Position = UDim2.new(0.755, 0, 1, -98)
+            wear.Size = UDim2.new(0.225, 0, 0, 40)
+        end
+    end
+    adjustCatalogLayout()
+    local layoutConnection = panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(adjustCatalogLayout)
+    gui.Destroying:Connect(function() layoutConnection:Disconnect() end)
+    local cartButton = button(panel, "Корзина (0)", UDim2.new(1, -180, 0, 8), UDim2.fromOffset(126, 32))
+    local addCart = button(panel, "+ В корзину", UDim2.new(0.51, 0, 1, -48), UDim2.new(0.47, 0, 0, 36))
+    local function updateCartCount() cartButton.Text = "Корзина (" .. #catalogCart .. ")" end
+    updateCartCount()
+    local function updateCartLayout()
+        if panel.AbsoluteSize.X < 600 then
+            copy.Position, copy.Size = UDim2.new(0, 16, 1, -49), UDim2.new(0.32, -12, 0, 40)
+            wear.Position, wear.Size = UDim2.new(0.32, 8, 1, -49), UDim2.new(0.32, -8, 0, 40)
+            addCart.Position, addCart.Size = UDim2.new(0.64, 8, 1, -49), UDim2.new(0.36, -24, 0, 40)
+        else
+            addCart.Position, addCart.Size = UDim2.new(0.51, 0, 1, -48), UDim2.new(0.47, 0, 0, 36)
+        end
+    end
+    updateCartLayout()
+    local cartLayoutConnection = panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+        task.defer(updateCartLayout)
+    end)
+    gui.Destroying:Connect(function() cartLayoutConnection:Disconnect() end)
+    local function openCart()
+        local old = panel:FindFirstChild("CartOverlay")
+        if old then old:Destroy() end
+        local overlay = Instance.new("Frame")
+        overlay.Name = "CartOverlay"
+        overlay.Size = UDim2.fromScale(1, 1)
+        overlay.BackgroundColor3 = Color3.fromRGB(28, 31, 43)
+        overlay.BorderSizePixel = 0
+        overlay.ZIndex = 10
+        overlay.Parent = panel
+        local title = label(overlay, "Корзина", UDim2.fromOffset(16, 5), UDim2.new(1, -80, 0, 38), 20)
+        title.ZIndex = 11
+        local closeCart = button(overlay, "✕", UDim2.new(1, -48, 0, 7), UDim2.fromOffset(36, 34))
+        closeCart.ZIndex = 11
+        closeCart.MouseButton1Click:Connect(function() overlay:Destroy() end)
+        local rows = Instance.new("ScrollingFrame")
+        rows.Position = UDim2.fromOffset(16, 50)
+        rows.Size = UDim2.new(1, -32, 1, -160)
+        rows.BackgroundColor3 = Color3.fromRGB(38, 42, 56)
+        rows.BorderSizePixel = 0
+        rows.ScrollBarThickness = 5
+        rows.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        rows.CanvasSize = UDim2.new()
+        rows.ZIndex = 11
+        rows.Parent = overlay
+        local rowLayout = Instance.new("UIListLayout")
+        rowLayout.Padding = UDim.new(0, 4)
+        rowLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        rowLayout.Parent = rows
+        local nameBox = Instance.new("TextBox")
+        nameBox.Position = UDim2.new(0, 16, 1, -102)
+        nameBox.Size = UDim2.new(1, -32, 0, 38)
+        nameBox.BackgroundColor3 = Color3.fromRGB(45, 49, 65)
+        nameBox.TextColor3 = Color3.new(1, 1, 1)
+        nameBox.PlaceholderText = "Название нового скинсета"
+        nameBox.Text = ""
+        nameBox.ClearTextOnFocus = false
+        nameBox.Font = Enum.Font.Gotham
+        nameBox.TextSize = 16
+        nameBox.ZIndex = 11
+        nameBox.Parent = overlay
+        local save = button(overlay, "Создать скинсет", UDim2.new(0, 16, 1, -54), UDim2.new(1, -32, 0, 40))
+        save.ZIndex = 11
+        local function renderCart()
+            for _, child in ipairs(rows:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
+            for index, entry in ipairs(catalogCart) do
+                local row = button(rows, tostring(entry.name) .. "  •  " .. tostring(entry.id) .. "   ✕", UDim2.new(), UDim2.new(1, -5, 0, 42))
+                row.ZIndex = 12
+                row.LayoutOrder = index
+                row.MouseButton1Click:Connect(function()
+                    table.remove(catalogCart, index)
+                    updateCartCount()
+                    renderCart()
+                end)
+            end
+        end
+        renderCart()
+        save.MouseButton1Click:Connect(function()
+            local name = nameBox.Text:match("^%s*(.-)%s*$")
+            if name == "" then nameBox.PlaceholderText = "Введите название скинсета"; return end
+            if #catalogCart == 0 then nameBox.Text = ""; nameBox.PlaceholderText = "Корзина пуста"; return end
+            local entries = {}
+            for _, entry in ipairs(catalogCart) do
+                table.insert(entries, {id = entry.id, name = entry.name, kind = entry.kind})
+            end
+            local newSets = table.clone(customSkinsets)
+            table.insert(newSets, {name = name, items = entries})
+            if not saveCustomSkinsets(newSets) then
+                nameBox.Text = ""; nameBox.PlaceholderText = "Не удалось сохранить файл скинсетов"; return
+            end
+            customSkinsets = newSets
+            catalogCart = {}
+            updateCartCount()
+            if refreshCustomSkinsets then refreshCustomSkinsets() end
+            overlay:Destroy()
+            status.Text = "Скинсет «" .. name .. "» сохранён"
+        end)
+    end
+    cartButton.MouseButton1Click:Connect(openCart)
+    local selected, cursor, keyword, generation, busy = nil, nil, "", 0, false
+    local catalogPages = nil
+    local HttpService = game:GetService("HttpService")
+    local function searchPage(nextPage)
+        if busy then return end
+        if nextPage and not cursor then status.Text = "Больше результатов нет"; return end
+        if not nextPage then
+            keyword = search.Text:match("^%s*(.-)%s*$")
+            if keyword == "" and creator.Text:match("^%s*$") then status.Text = "Введите название или автора"; return end
+            cursor = nil
+        end
+        busy = true
+        generation = generation + 1
+        local currentGeneration = generation
+        status.Text = kind == "head" and "Поиск голов..." or "Поиск аксессуаров..."
+        task.spawn(function()
+            -- Roblox выполняет поиск сам: прямой HTTP к catalog.roblox.com
+            -- некоторые исполнители отклоняют с 403.
+            local ok, data = pcall(function()
+                if nextPage then
+                    if not catalogPages or catalogPages.IsFinished then error("Больше результатов нет") end
+                    catalogPages:AdvanceToNextPageAsync()
+                else
+                    local params = CatalogSearchParams.new()
+                    params.SearchKeyword = keyword
+                    params.CreatorName = creator.Text:match("^%s*(.-)%s*$")
+                    params.Limit = 30
+                    if kind == "head" then
+                        params.BundleTypes = {Enum.BundleType.DynamicHead}
+                    else
+                        params.AssetTypes = {
+                            Enum.AvatarAssetType.Hat, Enum.AvatarAssetType.HairAccessory,
+                            Enum.AvatarAssetType.FaceAccessory, Enum.AvatarAssetType.NeckAccessory,
+                            Enum.AvatarAssetType.ShoulderAccessory, Enum.AvatarAssetType.FrontAccessory,
+                            Enum.AvatarAssetType.BackAccessory, Enum.AvatarAssetType.WaistAccessory
+                        }
+                    end
+                    catalogPages = game:GetService("AvatarEditorService"):SearchCatalog(params)
+                end
+                local results = {}
+                for _, item in ipairs(catalogPages:GetCurrentPage()) do
+                    if item.Id then
+                        table.insert(results, {
+                            itemType = kind == "head" and "Bundle" or "Asset", id = item.Id, name = item.Name,
+                            creatorName = item.CreatorName, price = item.Price,
+                            description = item.Description
+                        })
+                    end
+                end
+                return {data = results, nextPageCursor = not catalogPages.IsFinished and "next" or nil}
+            end)
+            if not gui.Parent or currentGeneration ~= generation then return end
+            busy = false
+            if not ok or type(data) ~= "table" or type(data.data) ~= "table" then
+                status.Text = "Ошибка поиска: " .. tostring(data)
+                return
+            end
+            for _, child in ipairs(list:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
+            list.CanvasPosition = Vector2.new(0, 0)
+            cursor = data.nextPageCursor
+            local count = 0
+            for _, item in ipairs(data.data) do
+                if tonumber(item.id) then
+                    count = count + 1
+                    local row = button(list, tostring(item.name or "Аксессуар") .. "  •  " .. tostring(item.id), UDim2.new(), UDim2.new(1, -6, 0, 42))
+                    row.LayoutOrder = count
+                    row.MouseButton1Click:Connect(function()
+                        selected = item.itemType == "Asset" and item or nil
+                        preview.Image = "rbxthumb://type=" .. (item.itemType == "Bundle" and "BundleThumbnail" or "Asset") .. "&id=" .. tostring(item.id) .. "&w=150&h=150"
+                        info.Text = tostring(item.name or "Аксессуар") .. "\nID: " .. tostring(item.id)
+                            .. "\nАвтор: " .. tostring(item.creatorName or "неизвестен")
+                            .. "\nЦена: " .. (item.price and tostring(item.price) .. " Robux" or "не указана")
+                        description.Text = tostring(item.description or "Загрузка описания...")
+                        if item.itemType == "Bundle" then
+                            status.Text = "Поиск ID головы внутри комплекта..."
+                            task.spawn(function()
+                                local okBundle, bundle = pcall(function()
+                                    return AssetService:GetBundleDetailsAsync(item.id)
+                                end)
+                                if not gui.Parent or info.Text:find(tostring(item.id), 1, true) == nil then return end
+                                local headId
+                                if okBundle and bundle then
+                                    for _, entry in ipairs(bundle.Items or {}) do
+                                        local assetType = entry.AssetType or entry.AssetTypeId
+                                        local assetNumber = typeof(assetType) == "EnumItem" and assetType.Value or tonumber(assetType)
+                                        if entry.Type == "Asset" and not assetNumber and entry.Id then
+                                            local okInfo, assetInfo = pcall(function()
+                                                return game:GetService("MarketplaceService"):GetProductInfo(entry.Id, Enum.InfoType.Asset)
+                                            end)
+                                            if okInfo and assetInfo then assetNumber = tonumber(assetInfo.AssetTypeId) end
+                                        end
+                                        if entry.Type == "Asset" and (assetNumber == 17 or assetNumber == 79) then
+                                            headId = entry.Id
+                                            break
+                                        end
+                                    end
+                                end
+                                if headId then
+                                    selected = {id = headId, name = item.name, itemType = "Asset"}
+                                    info.Text = tostring(item.name) .. "\nID головы: " .. tostring(headId)
+                                        .. "\nКомплект: " .. tostring(item.id)
+                                    description.Text = tostring(bundle.Description or item.description or "Описание отсутствует")
+                                    status.Text = "Найден ID головы внутри комплекта"
+                                else
+                                    selected = nil
+                                    status.Text = "В комплекте не найден ID головы; попробуйте другой"
+                                    description.Text = tostring(item.description or "Описание отсутствует")
+                                end
+                            end)
+                            return
+                        end
+                        task.spawn(function()
+                            local detailOk, detail = pcall(function()
+                                return game:GetService("MarketplaceService"):GetProductInfo(item.id, Enum.InfoType.Asset)
+                            end)
+                            if gui.Parent and selected == item then
+                                if detailOk and detail then
+                                    description.Text = detail.Description ~= "" and detail.Description or "Описание отсутствует"
+                                    info.Text = tostring(detail.Name or item.name or "Аксессуар") .. "\nID: " .. tostring(item.id)
+                                        .. "\nАвтор: " .. tostring(detail.Creator and detail.Creator.Name or item.creatorName or "неизвестен")
+                                        .. "\nЦена: " .. (detail.PriceInRobux and tostring(detail.PriceInRobux) .. " Robux" or "не указана")
+                                else
+                                    description.Text = item.description or "Не удалось загрузить описание"
+                                end
+                            end
+                        end)
+                    end)
+                end
+            end
+            status.Text = count > 0 and ("Найдено на странице: " .. count) or (kind == "head" and "Головы не найдены; попробуйте другое название" or "Аксессуары не найдены")
+        end)
+    end
+    kindButton.MouseButton1Click:Connect(function()
+        if busy then return end
+        kind = kind == "accessory" and "head" or "accessory"
+        kindButton.Text = kind == "head" and "Головы" or "Аксессуары"
+        wear.Text = kind == "head" and ";head me ID" or ";hat me ID"
+        search.PlaceholderText = kind == "head" and "Название головы" or "Название аксессуара"
+        selected, cursor, catalogPages = nil, nil, nil
+        preview.Image = ""
+        info.Text = "Выберите предмет"
+        description.Text = ""
+        for _, child in ipairs(list:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
+        status.Text = "Введите название или автора и нажмите «Искать»"
+    end)
+    searchButton.MouseButton1Click:Connect(function() searchPage(false) end)
+    search.FocusLost:Connect(function(enterPressed) if enterPressed then searchPage(false) end end)
+    nextButton.MouseButton1Click:Connect(function() searchPage(true) end)
+    addCart.MouseButton1Click:Connect(function()
+        if not selected or not tonumber(selected.id) then status.Text = "Сначала выберите предмет"; return end
+        for _, entry in ipairs(catalogCart) do
+            if tostring(entry.id) == tostring(selected.id) and entry.kind == kind then
+                status.Text = "Предмет уже в корзине"; return
+            end
+        end
+        table.insert(catalogCart, {id = tostring(selected.id), name = tostring(selected.name or "Предмет"), kind = kind})
+        updateCartCount()
+        status.Text = "Предмет добавлен в корзину"
+    end)
+    copy.MouseButton1Click:Connect(function()
+        if not selected then status.Text = "Сначала выберите аксессуар"; return end
+        if typeof(setclipboard) ~= "function" then status.Text = "Исполнитель не поддерживает setclipboard"; return end
+        local ok = pcall(setclipboard, tostring(selected.id))
+        status.Text = ok and "ID скопирован" or "Не удалось скопировать ID"
+    end)
+    wear.MouseButton1Click:Connect(function()
+        if not selected then status.Text = "Сначала выберите аксессуар"; return end
+        local id = tostring(selected.id)
+        local signals = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
+        signals = signals and signals:FindFirstChild("Signals")
+        local command = signals and signals:FindFirstChild("RequestCommandSilent")
+        if not command or not command:IsA("RemoteFunction") then status.Text = "HD Admin недоступен"; return end
+        local commandText = (kind == "head" and ";head me " or ";hat me ") .. id
+        status.Text = "Отправка команды " .. commandText
+        task.spawn(function()
+            local ok, err = pcall(function() command:InvokeServer(commandText) end)
+            if gui.Parent then status.Text = ok and "Команда отправлена; результат зависит от игры" or ("Ошибка команды: " .. tostring(err)) end
+        end)
+    end)
+end
+
 local function injectBarboskinVisuals()
     setLoadingStatus("Поиск интерфейса игры...")
     local mainGui = playerGui:WaitForChild("MainGui", 10)
@@ -1289,6 +1745,8 @@ local function injectBarboskinVisuals()
     end)
 
     tabBV.addComment("Настройки AFK, дня, зума, FOV и радужных предметов сохраняются.")
+
+    tabBV.addButton("Открыть поиск аксессуаров", openAccessoryCatalog)
 
     tabBV.addTitle("Визуал и камера")
 
@@ -1948,6 +2406,8 @@ local function injectBarboskinVisuals()
         showNotification("Local морфы", "Локальный морф снят", false)
     end)
     -- ================== ВКЛАДКА 3: Скинсеты ==================
+    setLoadingStatus("Загрузка скинсетов...")
+    loadCustomSkinsets()
     local tabSkins = createTab("Скинсеты", "skinsets", "rgb(85,255,85)")
 
     tabSkins.addTitle("Готовые сеты")
@@ -2010,6 +2470,40 @@ local function injectBarboskinVisuals()
             }, "Скинсеты", "✅ Белый сет надет!", 0.5)
         end)
 
+    tabSkins.addTitle("Мои скинсеты")
+    local customRows = {}
+    refreshCustomSkinsets = function()
+        for _, row in ipairs(customRows) do if row.Parent then row:Destroy() end end
+        customRows = {}
+        for index, set in ipairs(customSkinsets) do
+            if type(set) == "table" and type(set.name) == "string" and type(set.items) == "table" then
+                local apply = tabSkins.addButton("👕 " .. set.name, function()
+                    local commands = {";clrhats"}
+                    for _, item in ipairs(set.items) do
+                        local id = tostring(item.id or "")
+                        if id:match("^%d+$") then
+                            table.insert(commands, (item.kind == "head" and ";head me " or ";hat me ") .. id)
+                        end
+                    end
+                    runHDSequence(commands, "Скинсеты", "Команды скинсета отправлены", 0.5)
+                end)
+                local remove = tabSkins.addButton("🗑 Удалить: " .. set.name, function()
+                    local updated = table.clone(customSkinsets)
+                    table.remove(updated, index)
+                    if not saveCustomSkinsets(updated) then
+                        showNotification("Скинсеты", "Не удалось сохранить изменения", true)
+                        return
+                    end
+                    customSkinsets = updated
+                    refreshCustomSkinsets()
+                    showNotification("Скинсеты", "Скинсет удалён", false)
+                end)
+                table.insert(customRows, apply)
+                table.insert(customRows, remove)
+            end
+        end
+    end
+    refreshCustomSkinsets()
     return true
 end
 

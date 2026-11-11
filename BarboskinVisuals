@@ -1,4 +1,4 @@
---BarboskinVisuals 2.1
+--BarboskinVisuals 2.2
 repeat task.wait() until game:IsLoaded()
 
 -- ================== ПРОВЕРКА ИГРЫ (PLACE ID ROUTER) ==================
@@ -51,6 +51,68 @@ local Lighting = game:GetService("Lighting")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
+
+-- Полноэкранный фон загрузки, включая область верхней панели.
+local previousLoading = playerGui:FindFirstChild("BarboskinLoading")
+if previousLoading then previousLoading:Destroy() end
+local loadingGui = Instance.new("ScreenGui")
+loadingGui.Name = "BarboskinLoading"
+loadingGui.ResetOnSpawn = false
+loadingGui.IgnoreGuiInset = true
+loadingGui.DisplayOrder = 2147483647
+loadingGui.Parent = playerGui
+local backdrop = Instance.new("Frame")
+backdrop.Size = UDim2.fromScale(1, 1)
+backdrop.BorderSizePixel = 0
+backdrop.BackgroundColor3 = Color3.fromRGB(20, 24, 36)
+backdrop.Active = true
+backdrop.Parent = loadingGui
+local gradient = Instance.new("UIGradient")
+gradient.Color = ColorSequence.new(Color3.fromRGB(30, 36, 53), Color3.fromRGB(8, 10, 18))
+gradient.Rotation = 115
+gradient.Parent = backdrop
+local function loadingLabel(text, y, size, font, color)
+    local label = Instance.new("TextLabel")
+    label.AnchorPoint = Vector2.new(0.5, 0.5)
+    label.Position = UDim2.new(0.5, 0, 0.45, y)
+    label.Size = UDim2.new(1, -40, 0, 65)
+    label.BackgroundTransparency = 1
+    label.Font = font
+    label.Text = text
+    label.TextSize = size
+    label.TextColor3 = color
+    label.TextWrapped = true
+    label.Parent = backdrop
+    return label
+end
+local heading = loadingLabel("Загрузка", 0, 38, Enum.Font.GothamBold, Color3.fromRGB(255, 255, 255))
+local status = loadingLabel("Подготовка скрипта...", 55, 16, Enum.Font.Gotham, Color3.fromRGB(178, 185, 204))
+local accent = Instance.new("Frame")
+accent.AnchorPoint = Vector2.new(0.5, 0.5)
+accent.Position = UDim2.new(0.5, 0, 0.45, 92)
+accent.Size = UDim2.fromOffset(80, 3)
+accent.BorderSizePixel = 0
+accent.BackgroundColor3 = Color3.fromRGB(255, 195, 70)
+accent.Parent = backdrop
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(1, 0)
+corner.Parent = accent
+local loadingStart = os.clock()
+local function setLoadingStatus(message)
+    if loadingGui.Parent then status.Text = message end
+end
+local function finishLoading(success)
+    if not loadingGui.Parent then return end
+    setLoadingStatus(success and "Готово!" or "Не удалось загрузить меню")
+    task.wait(math.max(0.35, 1 - (os.clock() - loadingStart)))
+    local info = TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    TweenService:Create(backdrop, info, {BackgroundTransparency = 1}):Play()
+    TweenService:Create(accent, info, {BackgroundTransparency = 1}):Play()
+    TweenService:Create(heading, info, {TextTransparency = 1}):Play()
+    TweenService:Create(status, info, {TextTransparency = 1}):Play()
+    task.wait(0.6)
+    loadingGui:Destroy()
+end
 
 -- ================== УВЕДОМЛЕНИЯ НА ЭКРАНЕ ==================
 local function showNotification(titleText, msgText, isError)
@@ -199,6 +261,105 @@ local function showHDMessage(title, subTitle, text, color)
     if not msgShown then
         showHDHint(tostring(title or "") .. ": " .. tostring(text or ""), color)
     end
+end
+
+-- Радужная пружина меняется только локально и восстанавливается при выключении.
+if type(_G.BarboskinRainbowSpringCleanup) == "function" then
+    pcall(_G.BarboskinRainbowSpringCleanup)
+end
+local springEnabled = false
+local springOriginals = {}
+local springConnection
+local function restoreSpring()
+    for mesh, original in pairs(springOriginals) do
+        pcall(function()
+            if mesh.Parent then mesh.TextureId = original.texture end
+            if original.handle.Parent then original.handle.Color = original.color end
+        end)
+    end
+    springOriginals = {}
+end
+local function setRainbowSpring(enabled)
+    springEnabled = enabled
+    if springConnection then springConnection:Disconnect(); springConnection = nil end
+    if not enabled then restoreSpring(); return end
+    local elapsed = 0
+    springConnection = RunService.Heartbeat:Connect(function(dt)
+        elapsed = elapsed + dt
+        if elapsed < 0.05 then return end
+        elapsed = 0
+        local hue = (math.floor(os.clock() * 2) % 12) / 12
+        local backpack = player:FindFirstChildOfClass("Backpack")
+        for _, holder in pairs({backpack, player.Character}) do
+            if holder then
+                local tool = holder:FindFirstChild("Очень Крутое")
+                local handle = tool and tool:IsA("Tool") and tool:FindFirstChild("Handle")
+                local mesh = handle and handle:IsA("BasePart") and handle:FindFirstChild("Mesh")
+                if mesh and mesh:IsA("SpecialMesh") then
+                    if not springOriginals[mesh] then
+                        springOriginals[mesh] = {texture = mesh.TextureId, color = handle.Color, handle = handle}
+                    end
+                    mesh.TextureId = ""
+                    handle.Color = Color3.fromHSV(hue, 1, 1)
+                end
+            end
+        end
+    end)
+end
+_G.BarboskinRainbowSpringCleanup = function() setRainbowSpring(false) end
+
+-- Независимые радужные эффекты для Bomb и Pistol.
+if type(_G.BarboskinRainbowItemsCleanup) == "function" then
+    pcall(_G.BarboskinRainbowItemsCleanup)
+end
+local rainbowItems = {}
+local function setRainbowItem(kind, enabled)
+    local old = rainbowItems[kind]
+    if old then
+        old.connection:Disconnect()
+        for object, saved in pairs(old.originals) do
+            pcall(function()
+                if object.Parent then object[saved.property] = saved.texture end
+                if saved.part.Parent then saved.part.Color = saved.color end
+            end)
+        end
+        rainbowItems[kind] = nil
+    end
+    if not enabled then return end
+    local state = {originals = {}}
+    local elapsed = 0
+    state.connection = RunService.Heartbeat:Connect(function(dt)
+        elapsed = elapsed + dt
+        if elapsed < 0.05 then return end
+        elapsed = 0
+        local backpack = player:FindFirstChildOfClass("Backpack")
+        for _, holder in pairs({backpack, player.Character}) do
+            local tool = holder and holder:FindFirstChild(kind)
+            if tool and tool:IsA("Tool") then
+                local part, object, property
+                if kind == "Bomb" then
+                    part = tool:FindFirstChild("Handle")
+                    object = part and part:FindFirstChild("Mesh")
+                    if object and object:IsA("SpecialMesh") then property = "TextureId" end
+                elseif kind == "Pistol" then
+                    part = tool:FindFirstChild("pistol")
+                    if part and part:IsA("MeshPart") then object, property = part, "TextureID" end
+                end
+                if part and part:IsA("BasePart") and object and property then
+                    if not state.originals[object] then
+                        state.originals[object] = {texture = object[property], color = part.Color, part = part, property = property}
+                    end
+                    object[property] = ""
+                    part.Color = Color3.fromHSV((math.floor(os.clock() * 2) % 12) / 12, 1, 1)
+                end
+            end
+        end
+    end)
+    rainbowItems[kind] = state
+end
+_G.BarboskinRainbowItemsCleanup = function()
+    setRainbowItem("Bomb", false)
+    setRainbowItem("Pistol", false)
 end
 
 -- ================== СОСТОЯНИЕ ВИЗУАЛА ==================
@@ -646,6 +807,7 @@ end
 
 -- ================== ФУНКЦИЯ ВНЕДРЕНИЯ ВКЛАДКИ ==================
 local function injectBarboskinVisuals()
+    setLoadingStatus("Поиск интерфейса игры...")
     local mainGui = playerGui:WaitForChild("MainGui", 10)
     if not mainGui then return false end
 
@@ -680,7 +842,7 @@ local function injectBarboskinVisuals()
     end
 
     -- 2. Очистка старых версий кастомных вкладок
-    local oldTabsToClean = {"vip_hub", "visuals_hub", "admin_hub", "anims_hub", "barboskinvisuals", "minecraft", "vip_morphs"}
+    local oldTabsToClean = {"vip_hub", "visuals_hub", "admin_hub", "anims_hub", "barboskinvisuals", "minecraft", "vip_morphs", "skinsets", "local_morphs"}
     for _, id in ipairs(oldTabsToClean) do
         local oldBtn = leftScroll:FindFirstChild("btn_" .. id)
         if oldBtn then oldBtn:Destroy() end
@@ -850,6 +1012,12 @@ local function injectBarboskinVisuals()
                 end)
                 return boxFrame.TextBox
             end,
+            addText = function(text)
+                local t = localScript.text:Clone()
+                t.Parent = pg
+                t.TextLabel.Text = text
+                return t.TextLabel
+            end,
             addComment = function(text)
                 local t = localScript.text:Clone()
                 t.Parent = pg
@@ -968,8 +1136,36 @@ local function injectBarboskinVisuals()
         end
     end
 
+    setLoadingStatus("Создание вкладок и кнопок...")
     -- ================== ВКЛАДКА 1: BarboskinVisuals ==================
     local tabBV = createTab("BarboskinVisuals", "barboskinvisuals", "rgb(255,200,60)")
+
+    tabBV.addButton("Тест", function()
+        showNotification("Notice", "Тест успешный", false)
+    end)
+
+    tabBV.addButton("Превратиться в R15", function()
+        task.spawn(function()
+            local ok, err = pcall(function()
+                local events = ReplicatedStorage:WaitForChild("events", 10)
+                local morph = events and events:WaitForChild("morphChange", 10)
+                local client = ReplicatedStorage:WaitForChild("HDAdminHDClient", 10)
+                local signals = client and client:WaitForChild("Signals", 10)
+                local silent = signals and signals:WaitForChild("RequestCommandSilent", 10)
+                local modification = signals and signals:WaitForChild("RequestCommandModification", 10)
+                if not morph or not morph:IsA("RemoteEvent") or not silent or not silent:IsA("RemoteFunction") or not modification or not modification:IsA("RemoteFunction") then
+                    error("Не найдены необходимые серверные команды")
+                end
+                morph:FireServer("Simple", "Bilder")
+                silent:InvokeServer(";ratdance")
+                modification:InvokeServer("!Undance")
+            end)
+            if not ok then
+                warn("R15: " .. tostring(err))
+                showHDHint("Не удалось выполнить превращение в R15", Color3.fromRGB(255, 100, 100))
+            end
+        end)
+    end)
 
     tabBV.addTitle("Хаос")
 
@@ -1092,10 +1288,26 @@ local function injectBarboskinVisuals()
         showHDHint("🗑️ Настройки сброшены!", Color3.fromRGB(255, 100, 100))
     end)
 
-    tabBV.addComment("Настройки AFK, дня, зума и FOV сохраняются и восстанавливаются при запуске скрипта.")
+    tabBV.addComment("Настройки AFK, дня, зума, FOV и радужных предметов сохраняются.")
 
     tabBV.addTitle("Визуал и камера")
 
+    tabBV.addToggle("Радужная пружина", false,
+        function() setRainbowSpring(true) end,
+        function() setRainbowSpring(false) end,
+        "RainbowSpring_Active"
+    )
+
+    tabBV.addToggle("Радужная бомба", false,
+        function() setRainbowItem("Bomb", true) end,
+        function() setRainbowItem("Bomb", false) end,
+        "RainbowBomb_Active"
+    )
+    tabBV.addToggle("Радужный пистолет", false,
+        function() setRainbowItem("Pistol", true) end,
+        function() setRainbowItem("Pistol", false) end,
+        "RainbowPistol_Active"
+    )
     tabBV.addToggle("Всегда день (ясная погода без тумана)", alwaysDayActive,
         function()
             alwaysDayActive = true
@@ -1169,7 +1381,17 @@ local function injectBarboskinVisuals()
     tabBV.addButton("🖥️ Открыть / скрыть отдельную мини-строку на экране", toggleFloatingMiniBar)
 
     -- ================== ВКЛАДКА 2: VIP Морфы ==================
-    local tabVIP = createTab("VIP морфы", "vip_morphs", "rgb(255,170,0)")
+    local tabVIP = createTab("VIP морфы (НЕ РАБОТАЕТ!)", "vip_morphs", "rgb(255,170,0)")
+    local vipWarningLines = {
+        "Из игры убрали большинство вип команд",
+        "Из за чего не работают морфы",
+        "Они останутся на случай если команду bundle",
+        "Вернут. Лучше не использовать эти морфы"
+    }
+    for _, warningText in ipairs(vipWarningLines) do
+        local warning = tabVIP and tabVIP.addComment and tabVIP.addComment(warningText)
+        if warning then warning.TextColor3 = Color3.fromRGB(255, 60, 60) end
+    end
 
     tabVIP.addTitle("Анимации для морфов")
 
@@ -1324,103 +1546,484 @@ local function injectBarboskinVisuals()
         showHDHint("🔄 Режим сброшен: следующий морф будет надет с нуля!", Color3.fromRGB(255, 255, 255))
     end)
 
-    -- ================== ВКЛАДКА 3: Майнкрафт ==================
-    local tabMC = createTab("Майнкрафт", "minecraft", "rgb(85,255,85)")
+    -- Локальный морф: видимые части следуют за настоящим персонажем,
+    -- не участвуя в его физике и не изменяя серверную модель.
+    setLoadingStatus("Подготовка локальных морфов...")
+    local tabLocalMorphs = createTab("Local морфы", "local_morphs", "rgb(100,200,255)")
+    tabLocalMorphs.addTitle("Тестовые морфы")
+    tabLocalMorphs.addText("Морфы еще не доделаны так что могут быть баги!")
 
-    tabMC.addTitle("Морфы")
+    local function removeLocalMorph()
+        if type(_G.BarboskinRemoveLocalMorph) == "function" then
+            _G.BarboskinRemoveLocalMorph()
+        end
+    end
 
-    local steveImg = MORPH_IMAGES["⛏️ Превратиться в Стива (Майнкрафт)"] or DEFAULT_MORPH_IMAGE
-    tabMC.addImageButton("⛏️ Превратиться в Стива (Майнкрафт)", steveImg, nil, function()
-        showHDHint("⏳ Превращение в Minecraft-образ (Стив)...", Color3.fromRGB(85, 255, 85))
-        task.spawn(function()
-            pcall(function()
-                local morphEvent = ReplicatedStorage:FindFirstChild("events")
-                if morphEvent then morphEvent = morphEvent:FindFirstChild("morphChange") end
-                if morphEvent and morphEvent:IsA("RemoteEvent") then
-                    morphEvent:FireServer("Simple", "Bilder")
-                end
-            end)
-            task.wait(1)
-            pcall(function()
-                local sigs = ReplicatedStorage:FindFirstChild("HDAdminHDClient")
-                if sigs then sigs = sigs:FindFirstChild("Signals") end
-                if sigs then
-                    local req = sigs:FindFirstChild("RequestCommandSilent")
-                    if req and req:IsA("RemoteFunction") then
-                        req:InvokeServer(";dinofy")
-                        task.wait(1)
-                        req:InvokeServer(";undinofy")
-                        task.wait(1)
-                        req:InvokeServer(";clrhats")
-                        task.wait(1)
-                        req:InvokeServer(";bundle me 111293482078246")
-                        task.wait(1)
-                        req:InvokeServer(";bundle me 46595595634504")
-                        task.wait(1)
-                        req:InvokeServer(";color me green")
-                        _G.BarboskinIsMorphed = true
-                        _G.BarboskinIsBird = false
-                        showHDHint("✅ ⛏️ Minecraft-образ (Стив) готов!", Color3.fromRGB(85, 255, 85))
+    local function applyLocalMorph(path, morphName)
+        local getAsset = (typeof(getcustomasset) == "function" and getcustomasset)
+            or (typeof(getsynasset) == "function" and getsynasset)
+        if not getAsset or typeof(isfile) ~= "function" or not isfile(path) then
+            showNotification("Local морфы", "Поместите " .. path .. " в workspace исполнителя; нужен getcustomasset", true)
+            return
+        end
+        local character = player.Character
+        if not character or not character:FindFirstChild("HumanoidRootPart") then
+            showNotification("Local морфы", "Персонаж ещё не загружен", true)
+            return
+        end
+        local ok, objects = pcall(function()
+            return game:GetObjects(getAsset(path))
+        end)
+        if not ok or type(objects) ~= "table" or not objects[1] then
+            showNotification("Local морфы", "Не удалось загрузить rbxm. Проверьте поддержку GetObjects и getcustomasset", true)
+            return
+        end
+        local container = Instance.new("Model")
+        container.Name = "BarboskinLocalMorph"
+        for _, object in ipairs(objects) do object.Parent = container end
+        local source = container
+        local humanoid = container:FindFirstChildWhichIsA("Humanoid", true)
+        if humanoid and humanoid.Parent:IsA("Model") then source = humanoid.Parent end
+        local names = {"Head", "Torso", "UpperTorso", "LowerTorso", "Left Arm", "Right Arm", "Left Leg", "Right Leg", "LeftUpperArm", "LeftLowerArm", "LeftHand", "RightUpperArm", "RightLowerArm", "RightHand", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot", "RightUpperLeg", "RightLowerLeg", "RightFoot"}
+        local bases = {}
+        for _, name in ipairs(names) do
+            local from = source:FindFirstChild(name)
+            local to = character:FindFirstChild(name)
+            if from and from:IsA("BasePart") and to and to:IsA("BasePart") then
+                table.insert(bases, {from = from, to = to, cframe = from.CFrame})
+            end
+        end
+        if #bases == 0 then
+            container:Destroy()
+            showNotification("Local морфы", "Не найдены совпадающие части тела. Нужна структура морфа и персонажа", true)
+            return
+        end
+        -- Сохраняем связи до удаления суставов: они точнее расстояния между деталями.
+        -- Поиск прекращается на первой части тела, поэтому через Torso нельзя
+        -- случайно перейти с руки на ногу.
+        local links, baseByPart = {}, {}
+        for _, base in ipairs(bases) do baseByPart[base.from] = base end
+        local function link(a, b)
+            if not a or not b or not a:IsA("BasePart") or not b:IsA("BasePart") then return end
+            links[a] = links[a] or {}
+            links[b] = links[b] or {}
+            table.insert(links[a], b)
+            table.insert(links[b], a)
+        end
+        for _, item in ipairs(container:GetDescendants()) do
+            if item:IsA("JointInstance") or item:IsA("WeldConstraint") then
+                link(item.Part0, item.Part1)
+            end
+        end
+        local function findConnectedBase(part)
+            local queue, visited, index = {part}, {[part] = true}, 1
+            while index <= #queue do
+                local current = queue[index]
+                index = index + 1
+                if baseByPart[current] then return baseByPart[current] end
+                for _, neighbor in ipairs(links[current] or {}) do
+                    if not visited[neighbor] then
+                        visited[neighbor] = true
+                        table.insert(queue, neighbor)
                     end
                 end
-            end)
+            end
+        end
+        -- Для Экскурсовода сохраняем расстояния между частями из файла.
+        -- Движение берём как изменение позы текущего рига относительно начальной.
+        local sourceRoot = source:FindFirstChild("HumanoidRootPart")
+        local targetRoot = character:FindFirstChild("HumanoidRootPart")
+        local useOriginalRig = path == "Morphs/eksursovod.rbxm"
+            and sourceRoot and sourceRoot:IsA("BasePart") and targetRoot
+        if useOriginalRig then
+            for _, base in ipairs(bases) do
+                base.rest = sourceRoot.CFrame:ToObjectSpace(base.cframe)
+                base.initial = targetRoot.CFrame:ToObjectSpace(base.to.CFrame)
+            end
+        end
+        local parts = {}
+        for _, item in ipairs(container:GetDescendants()) do
+            if item:IsA("BasePart") and item.Name ~= "HumanoidRootPart" then
+                local closest = baseByPart[item]
+                -- У Дружка обе маленькие руки называются mesh_id307.
+                -- Выбираем только среди частей рук, а не среди ног или туловища.
+                local parentModel = item:FindFirstAncestor("Дружок")
+                if item:IsA("MeshPart") and item.Name == "mesh_id307" and parentModel then
+                    local armDistance
+                    for _, base in ipairs(bases) do
+                        local name = base.from.Name
+                        if name == "Left Arm" or name == "Right Arm"
+                            or name:find("Arm") or name == "LeftHand" or name == "RightHand" then
+                            local d = (item.Position - base.cframe.Position).Magnitude
+                            if not armDistance or d < armDistance then
+                                closest, armDistance = base, d
+                            end
+                        end
+                    end
+                end
+                -- Эти детали Экскурсовода относятся к туловищу, а не к ногам.
+                if path == "Morphs/eksursovod.rbxm" and (item.Name == "mesh_id692" or item.Name == "mesh_id693") then
+                    for _, base in ipairs(bases) do
+                        if base.from.Name == "Torso" or base.from.Name == "LowerTorso" then
+                            closest = base
+                            break
+                        end
+                    end
+                end
+                -- Нижняя часть Дружка Леди должна двигаться вместе с туловищем.
+                if path == "morphs/drujokledi.rbxm" and item.Name == "Handle"
+                    and item.Parent and item.Parent.Name == "Дружок" then
+                    for _, base in ipairs(bases) do
+                        if base.from.Name == "Torso" or base.from.Name == "LowerTorso" then
+                            closest = base
+                            break
+                        end
+                    end
+                end
+                local ancestor = item.Parent
+                while not closest and ancestor and ancestor ~= container do
+                    closest = baseByPart[ancestor]
+                    ancestor = ancestor.Parent
+                end
+                closest = closest or findConnectedBase(item)
+                if not closest then
+                    local distance
+                    for _, base in ipairs(bases) do
+                        local d = (item.Position - base.cframe.Position).Magnitude
+                        if not distance or d < distance then closest, distance = base, d end
+                    end
+                end
+                table.insert(parts, {part = item, target = closest.to, base = closest, offset = closest.cframe:ToObjectSpace(item.CFrame)})
+            end
+        end
+        if #parts == 0 then
+            container:Destroy()
+            showNotification("Local морфы", "В файле не найдены видимые части", true)
+            return
+        end
+        for _, item in ipairs(container:GetDescendants()) do
+            if item:IsA("BaseScript") or item:IsA("ModuleScript") or item:IsA("JointInstance") or item:IsA("Constraint") or item:IsA("Humanoid") or item:IsA("GuiBase2d") or item:IsA("SurfaceGui") or item:IsA("BillboardGui") then
+                item:Destroy()
+            elseif item:IsA("BasePart") then
+                if item.Name == "HumanoidRootPart" then
+                    item:Destroy()
+                else
+                    item.Anchored = true
+                    item.CanCollide = false
+                    item.CanTouch = false
+                    item.CanQuery = false
+                end
+            end
+        end
+        removeLocalMorph()
+        local hidden, connections = {}, {}
+        local function hide(item)
+            if item:IsA("BasePart") then
+                hidden[item] = item.LocalTransparencyModifier
+                item.LocalTransparencyModifier = 1
+            elseif item:IsA("Decal") then
+                hidden[item] = item.Transparency
+                item.Transparency = 1
+            end
+        end
+        for _, item in ipairs(character:GetDescendants()) do hide(item) end
+        table.insert(connections, character.DescendantAdded:Connect(hide))
+        container.Parent = Workspace
+        local active = true
+        local function cleanup()
+            if not active then return end
+            active = false
+            for _, connection in ipairs(connections) do connection:Disconnect() end
+            container:Destroy()
+            for item, value in pairs(hidden) do
+                if item.Parent then
+                    if item:IsA("BasePart") then item.LocalTransparencyModifier = value
+                    elseif item:IsA("Decal") then item.Transparency = value end
+                end
+            end
+            if _G.BarboskinRemoveLocalMorph == cleanup then _G.BarboskinRemoveLocalMorph = nil end
+        end
+        _G.BarboskinRemoveLocalMorph = cleanup
+        table.insert(connections, player.CharacterAdded:Connect(cleanup))
+        table.insert(connections, RunService.RenderStepped:Connect(function()
+            if player.Character ~= character or not character.Parent then cleanup(); return end
+            for _, entry in ipairs(parts) do
+                if entry.part.Parent and entry.target.Parent then
+                    if useOriginalRig and targetRoot.Parent then
+                        local current = targetRoot.CFrame:ToObjectSpace(entry.target.CFrame)
+                        local movement = entry.base.initial:Inverse() * current
+                        entry.part.CFrame = targetRoot.CFrame * CFrame.new(0, -0.3, 0) * entry.base.rest * movement * entry.offset
+                    else
+                        entry.part.CFrame = entry.target.CFrame * entry.offset
+                    end
+                end
+            end
+        end))
+        showNotification("Local морфы", morphName .. " надет локально", false)
+    end
+    -- Эксперимент: сохраняем суставы и детали исходной модели.
+    local function applyRigTest(path)
+        local getAsset = (typeof(getcustomasset) == "function" and getcustomasset)
+            or (typeof(getsynasset) == "function" and getsynasset)
+        local character = player.Character
+        local realRoot = character and character:FindFirstChild("HumanoidRootPart")
+        if not getAsset or typeof(isfile) ~= "function" or not isfile(path) then
+            showNotification("Local морфы", "Не найден файл " .. path .. " или getcustomasset", true)
+            return
+        end
+        if not realRoot then
+            showNotification("Local морфы", "Персонаж ещё не загружен", true)
+            return
+        end
+        local ok, objects = pcall(function() return game:GetObjects(getAsset(path)) end)
+        if not ok or type(objects) ~= "table" or not objects[1] then
+            showNotification("Local морфы", "Не удалось загрузить файл морфа", true)
+            return
+        end
+        local container = Instance.new("Model")
+        container.Name = "BarboskinLocalMorph"
+        for _, object in ipairs(objects) do object.Parent = container end
+        local humanoid = container:FindFirstChildWhichIsA("Humanoid", true)
+        local rig = humanoid and humanoid.Parent
+        local root = rig and rig:FindFirstChild("HumanoidRootPart")
+        if not rig or not rig:IsA("Model") or not root or not root:IsA("BasePart") then
+            container:Destroy()
+            showNotification("Local морфы", "В файле не найден риг с HumanoidRootPart", true)
+            return
+        end
+        local motors = {}
+        for _, motor in ipairs(rig:GetDescendants()) do
+            if motor:IsA("Motor6D") and motor.Part0 and motor.Part1 then
+                for _, other in ipairs(character:GetDescendants()) do
+                    if other:IsA("Motor6D") and other.Name == motor.Name and other.Part0 and other.Part1
+                        and other.Part0.Name == motor.Part0.Name and other.Part1.Name == motor.Part1.Name then
+                        table.insert(motors, {copy = motor, original = other})
+                        break
+                    end
+                end
+            end
+        end
+        if #motors == 0 then
+            container:Destroy()
+            showNotification("Local морфы", "Не найдены совпадающие суставы: проверьте риг персонажа", true)
+            return
+        end
+        -- Берём фактическую позу частей, а не только Motor6D.Transform:
+        -- некоторые анимации управляют суставами через C0/C1.
+        local trackedParts = {}
+        for _, name in ipairs({"Torso", "Head", "Left Arm", "Right Arm", "Left Leg", "Right Leg",
+            "UpperTorso", "LowerTorso", "LeftUpperArm", "LeftLowerArm", "LeftHand",
+            "RightUpperArm", "RightLowerArm", "RightHand", "LeftUpperLeg", "LeftLowerLeg",
+            "LeftFoot", "RightUpperLeg", "RightLowerLeg", "RightFoot"}) do
+            local copyPart = rig:FindFirstChild(name)
+            local realPart = character:FindFirstChild(name)
+            if copyPart and copyPart:IsA("BasePart") and realPart and realPart:IsA("BasePart") then
+                table.insert(trackedParts, {
+                    copy = copyPart, original = realPart,
+                    rest = root.CFrame:ToObjectSpace(copyPart.CFrame),
+                    initial = realRoot.CFrame:ToObjectSpace(realPart.CFrame)
+                })
+            end
+        end
+        -- Все детали закреплены: положение вычисляем по сохранённым соединениям.
+        local graph, fallback = {}, {}
+        local motorMap = {}
+        for _, pair in ipairs(motors) do motorMap[pair.copy] = pair.original end
+        local function connectParts(a, b, relative, original)
+            if not a or not b then return end
+            graph[a] = graph[a] or {}
+            graph[b] = graph[b] or {}
+            local initial = original and original.Transform
+            table.insert(graph[a], {part = b, relative = relative, motor = original, initial = initial})
+            table.insert(graph[b], {part = a, relative = relative, motor = original, initial = initial, reverse = true})
+        end
+        for _, item in ipairs(container:GetDescendants()) do
+            if item:IsA("BasePart") then
+                fallback[item] = root.CFrame:ToObjectSpace(item.CFrame)
+            elseif item:IsA("JointInstance") or item:IsA("WeldConstraint") then
+                local a, b = item.Part0, item.Part1
+                if a and b then connectParts(a, b, a.CFrame:ToObjectSpace(b.CFrame), motorMap[item]) end
+            end
+        end
+        for _, item in ipairs(container:GetDescendants()) do
+            if item:IsA("BaseScript") or item:IsA("ModuleScript") or item:IsA("Humanoid")
+                or item:IsA("JointInstance") or item:IsA("Constraint")
+                or item:IsA("GuiBase2d") or item:IsA("SurfaceGui") or item:IsA("BillboardGui") then
+                item:Destroy()
+            elseif item:IsA("BasePart") then
+                item.Anchored = true
+                item.CanCollide = false
+                item.CanTouch = false
+                item.CanQuery = false
+                item.Massless = true
+            end
+        end
+        removeLocalMorph()
+        local hidden, connections = {}, {}
+        local function hide(item)
+            if item:IsA("BasePart") then
+                hidden[item] = item.LocalTransparencyModifier
+                item.LocalTransparencyModifier = 1
+            elseif item:IsA("Decal") then
+                hidden[item] = item.Transparency
+                item.Transparency = 1
+            end
+        end
+        for _, item in ipairs(character:GetDescendants()) do hide(item) end
+        table.insert(connections, character.DescendantAdded:Connect(hide))
+        local active = true
+        local function cleanup()
+            if not active then return end
+            active = false
+            for _, connection in ipairs(connections) do connection:Disconnect() end
+            container:Destroy()
+            for item, value in pairs(hidden) do
+                if item.Parent then
+                    if item:IsA("BasePart") then item.LocalTransparencyModifier = value
+                    elseif item:IsA("Decal") then item.Transparency = value end
+                end
+            end
+            if _G.BarboskinRemoveLocalMorph == cleanup then _G.BarboskinRemoveLocalMorph = nil end
+        end
+        _G.BarboskinRemoveLocalMorph = cleanup
+        rig:PivotTo(realRoot.CFrame * root.CFrame:ToObjectSpace(rig:GetPivot()))
+        container.Parent = Workspace
+        table.insert(connections, player.CharacterAdded:Connect(cleanup))
+        table.insert(connections, RunService.RenderStepped:Connect(function()
+            if player.Character ~= character or not character.Parent or not realRoot.Parent then cleanup(); return end
+            local morphRootFrame = realRoot.CFrame * CFrame.new(0, -1.25, 0)
+            local frames, queue, index = {[root] = morphRootFrame}, {root}, 1
+            for _, tracked in ipairs(trackedParts) do
+                if tracked.copy.Parent and tracked.original.Parent then
+                    local current = realRoot.CFrame:ToObjectSpace(tracked.original.CFrame)
+                    local change = tracked.initial:Inverse() * current
+                    frames[tracked.copy] = morphRootFrame * tracked.rest * change
+                    table.insert(queue, tracked.copy)
+                end
+            end
+            while index <= #queue do
+                local part = queue[index]
+                index = index + 1
+                for _, edge in ipairs(graph[part] or {}) do
+                    if not frames[edge.part] then
+                        local relative = edge.relative
+                        if edge.motor and edge.motor.Parent then
+                            relative = relative * edge.initial:Inverse() * edge.motor.Transform
+                        end
+                        if edge.reverse then relative = relative:Inverse() end
+                        frames[edge.part] = frames[part] * relative
+                        table.insert(queue, edge.part)
+                    end
+                end
+            end
+            for part, offset in pairs(fallback) do
+                if part.Parent then part.CFrame = frames[part] or (morphRootFrame * offset) end
+            end
+        end))
+        showNotification("Local морфы", "Экскурсовод: тест копии рига", false)
+    end
+    tabLocalMorphs.addButton("Экскурсовод (тест копии рига)", function()
+        applyRigTest("Morphs/eksursovod.rbxm")
+    end)
+    tabLocalMorphs.addButton("Дружок (тест)", function()
+        applyLocalMorph("morphs/druzhoktest.rbxm", "Дружок")
+    end)
+    tabLocalMorphs.addButton("Дружок Леди", function()
+        applyLocalMorph("morphs/drujokledi.rbxm", "Дружок Леди")
+    end)
+    tabLocalMorphs.addButton("Зайчиха", function()
+        applyLocalMorph("Morphs/Zaichixa.rbxm", "Зайчиха")
+    end)
+    tabLocalMorphs.addButton("Экскурсовод", function()
+        applyLocalMorph("Morphs/eksursovod.rbxm", "Экскурсовод")
+    end)
+    tabLocalMorphs.addButton("Подружка", function()
+        applyLocalMorph("Morphs/podruzhka.rbxm", "Подружка")
+    end)
+    tabLocalMorphs.addButton("Сонный Гена", function()
+        applyLocalMorph("Morphs/sleppygena.rbxm", "Сонный Гена")
+    end)
+    tabLocalMorphs.addButton("Снять локальный морф", function()
+        removeLocalMorph()
+        showNotification("Local морфы", "Локальный морф снят", false)
+    end)
+    -- ================== ВКЛАДКА 3: Скинсеты ==================
+    local tabSkins = createTab("Скинсеты", "skinsets", "rgb(85,255,85)")
+
+    tabSkins.addTitle("Готовые сеты")
+
+    tabSkins.addImageButton("Крутой сет #1", DEFAULT_MORPH_IMAGE,
+        nil,
+        function()
+            runHDSequence({
+                ";clrhats",
+                ";shirt me 73946522088364",
+                ";pants me 74827642361405",
+                ";head me 15093053680",
+                ";hat me 311450131",
+                ";hat me 215718515"
+            }, "Скинсеты", "✅ Крутой сет #1 надет!", 0.5)
         end)
-    end)
 
-    tabMC.addTitle("Кастомные головы")
+    tabSkins.addImageButton("Крутой сет #2", DEFAULT_MORPH_IMAGE,
+        nil,
+        function()
+            runHDSequence({
+                ";clrhats",
+                ";shirt me 78689422308727",
+                ";pants me 15464582959",
+                ";hat me 21070012"
+            }, "Скинсеты", "✅ Крутой сет #2 надет!", 0.5)
+        end)
 
-    tabMC.addButton("🔴 Голова #1 (Красная)", function()
-        runHeadCommands(";head me 14900390582", ";color me red")
-    end)
+    tabSkins.addImageButton("Валькирия + хедлесс", DEFAULT_MORPH_IMAGE,
+        nil,
+        function()
+            runHDSequence({
+                ";clrhats",
+                ";head me 15093053680",
+                ";hat me 1402432199"
+            }, "Скинсеты", "✅ Валькирия + хедлесс надеты!", 0.5)
+        end)
 
-    tabMC.addButton("🟡 Голова #2 (Желтая)", function()
-        runHeadCommands(";bundle me 8116", ";color me yellow")
-    end)
+    tabSkins.addImageButton("Чёрный сет", DEFAULT_MORPH_IMAGE,
+        nil,
+        function()
+            runHDSequence({
+                ";clrhats",
+                ";color me 0",
+                ";color me black",
+                ";head me 15093053680",
+                ";hat me 128159108"
+            }, "Скинсеты", "✅ Чёрный сет надет!", 0.5)
+        end)
 
-    tabMC.addButton("🟣 Голова #3 (Фиолетовая)", function()
-        runHeadCommands(";bundle me 8277", ";color me purple")
-    end)
-
-    tabMC.addTitle("Одежда")
-
-    tabMC.addButton("💎 Алмазная броня", function()
-        showHDHint("💎 Надеваем алмазную броню...", Color3.fromRGB(100, 200, 255))
-        runHDSequence({
-            ";shirt me 18304258147",
-            ";pants me 16682700825",
-            ";hat me 129844973837753"
-        }, "Майнкрафт", "✅ 💎 Алмазная броня надета!", 0.5)
-    end)
-
-    tabMC.addButton("✨ Золотой скин", function()
-        showHDHint("✨ Надеваем золотой скин...", Color3.fromRGB(255, 215, 0))
-        runHDSequence({
-            ";shirt me 11629818471",
-            ";pants me 11629818927"
-        }, "Майнкрафт", "✅ ✨ Золотой скин надет!", 0.5)
-    end)
+    tabSkins.addImageButton("Белый сет", DEFAULT_MORPH_IMAGE,
+        nil,
+        function()
+            runHDSequence({
+                ";clrhats",
+                ";color me 0",
+                ";color me white",
+                ";head me 15093053680",
+                ";hat me 1402433072"
+            }, "Скинсеты", "✅ Белый сет надет!", 0.5)
+        end)
 
     return true
 end
 
--- ================== ЗАПУСК И АВТО-ПЕРЕПОДКЛЮЧЕНИЕ ==================
-local success = injectBarboskinVisuals()
-
-if success then
-    print("BarboskinVisuals loaded.")
-    showNotification("BarboskinVisuals", "BarboskinVisuals loaded.", false)
-else
-    print("BarboskinVisuals loaded (ожидание MainGui...)")
-    showNotification("BarboskinVisuals", "BarboskinVisuals loaded.", false)
-end
-
--- Авто-повтор при обновлении PlayerGui
-if playerGui and not _G.BarboskinAutoInjectConnected then
-    _G.BarboskinAutoInjectConnected = true
-    playerGui.ChildAdded:Connect(function(child)
+-- Первичное внедрение и повторное подключение после респавна.
+local loadingOk, injected = pcall(injectBarboskinVisuals)
+if not loadingOk then warn("BarboskinVisuals: " .. tostring(injected)) end
+task.spawn(finishLoading, loadingOk and injected == true)
+if not _G.BarboskinMainGuiWatcher then
+    _G.BarboskinMainGuiWatcher = playerGui.ChildAdded:Connect(function(child)
         if child.Name == "MainGui" then
             task.wait(0.5)
-            injectBarboskinVisuals()
+            pcall(injectBarboskinVisuals)
         end
     end)
 end
+
+

@@ -1,4 +1,4 @@
---BarboskinVisuals 2.3
+--BarboskinVisuals 2.4 final
 repeat task.wait() until game:IsLoaded()
 
 -- ================== ПРОВЕРКА ИГРЫ (PLACE ID ROUTER) ==================
@@ -87,33 +87,104 @@ local function loadingLabel(text, y, size, font, color)
 end
 local heading = loadingLabel("Загрузка", 0, 38, Enum.Font.GothamBold, Color3.fromRGB(255, 255, 255))
 local status = loadingLabel("Подготовка скрипта...", 55, 16, Enum.Font.Gotham, Color3.fromRGB(178, 185, 204))
-local accent = Instance.new("Frame")
-accent.AnchorPoint = Vector2.new(0.5, 0.5)
-accent.Position = UDim2.new(0.5, 0, 0.45, 92)
-accent.Size = UDim2.fromOffset(80, 3)
-accent.BorderSizePixel = 0
-accent.BackgroundColor3 = Color3.fromRGB(255, 195, 70)
-accent.Parent = backdrop
+local progressTrack = Instance.new("Frame")
+progressTrack.AnchorPoint = Vector2.new(0.5, 0.5)
+progressTrack.Position = UDim2.new(0.5, 0, 0.45, 98)
+progressTrack.Size = UDim2.new(0.55, 0, 0, 8)
+progressTrack.BackgroundColor3 = Color3.fromRGB(58, 64, 82)
+progressTrack.BorderSizePixel = 0
+progressTrack.ClipsDescendants = true
+progressTrack.Parent = backdrop
+local trackLimit = Instance.new("UISizeConstraint")
+trackLimit.MaxSize = Vector2.new(420, 8)
+trackLimit.Parent = progressTrack
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(1, 0)
-corner.Parent = accent
+corner.Parent = progressTrack
+local progressFill = Instance.new("Frame")
+progressFill.Size = UDim2.fromScale(0, 1)
+progressFill.BackgroundColor3 = Color3.fromRGB(255, 195, 70)
+progressFill.BorderSizePixel = 0
+progressFill.Parent = progressTrack
+local fillCorner = Instance.new("UICorner")
+fillCorner.CornerRadius = UDim.new(1, 0)
+fillCorner.Parent = progressFill
 local loadingStart = os.clock()
+local loadingProgress = 0
+local progressTween
+local morphLoadErrors = {}
 local function setLoadingStatus(message)
     if loadingGui.Parent then status.Text = message end
 end
+local function setLoadingProgress(value)
+    if not loadingGui.Parent then return end
+    loadingProgress = math.max(loadingProgress, math.clamp(value, 0, 1))
+    if progressTween then progressTween:Cancel() end
+    progressTween = TweenService:Create(progressFill, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.fromScale(loadingProgress, 1)})
+    progressTween:Play()
+end
 local function finishLoading(success)
     if not loadingGui.Parent then return end
-    setLoadingStatus(success and "Готово!" or "Не удалось загрузить меню")
-    task.wait(math.max(0.35, 1 - (os.clock() - loadingStart)))
+    if success and #morphLoadErrors == 0 then
+        setLoadingStatus("Готово!")
+        setLoadingProgress(1)
+    elseif success then
+        setLoadingStatus("Не загружены морфы: " .. table.concat(morphLoadErrors, ", "))
+    else
+        setLoadingStatus("Не удалось загрузить меню")
+    end
+    task.wait(success and #morphLoadErrors == 0 and 1 or 3)
+    if not loadingGui.Parent then return end
     local info = TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
     TweenService:Create(backdrop, info, {BackgroundTransparency = 1}):Play()
-    TweenService:Create(accent, info, {BackgroundTransparency = 1}):Play()
+    TweenService:Create(progressTrack, info, {BackgroundTransparency = 1}):Play()
+    TweenService:Create(progressFill, info, {BackgroundTransparency = 1}):Play()
     TweenService:Create(heading, info, {TextTransparency = 1}):Play()
     TweenService:Create(status, info, {TextTransparency = 1}):Play()
     task.wait(0.6)
     loadingGui:Destroy()
 end
-
+local function preloadLocalMorphs()
+    local files = {"druzhoktest.rbxm", "drujokledi.rbxm", "Zaichixa.rbxm", "eksursovod.rbxm", "podruzhka.rbxm", "sleppygena.rbxm"}
+    local baseUrl = "https://raw.githubusercontent.com/kkutom/barboskinvisualscoolmorphs1488/main/"
+    local ready = typeof(isfile) == "function" and typeof(readfile) == "function" and typeof(writefile) == "function"
+        and typeof(isfolder) == "function" and typeof(makefolder) == "function"
+    if ready then
+        local ok = pcall(function() if not isfolder("Morphs") then makefolder("Morphs") end end)
+        ready = ok
+    end
+    local function valid(data)
+        return type(data) == "string" and #data > 32 and data:sub(1, 8) == "<roblox!"
+    end
+    for index, name in ipairs(files) do
+        setLoadingStatus("Загрузка морфов: " .. name .. " (" .. index .. "/" .. #files .. ")")
+        local path = "Morphs/" .. name
+        local ok = false
+        if ready then
+            ok = pcall(function()
+                local existing = isfile(path) and readfile(path)
+                if valid(existing) then return end
+                local requestFunction = (typeof(request) == "function" and request)
+                    or (typeof(http_request) == "function" and http_request)
+                    or (syn and typeof(syn.request) == "function" and syn.request)
+                local body
+                if requestFunction then
+                    local response = requestFunction({Url = baseUrl .. name, Method = "GET"})
+                    if not response or response.StatusCode ~= 200 then error("HTTP " .. tostring(response and response.StatusCode)) end
+                    body = response.Body
+                else
+                    body = game:HttpGet(baseUrl .. name)
+                end
+                if not valid(body) then error("Некорректный файл модели") end
+                writefile(path, body)
+                if not isfile(path) or not valid(readfile(path)) then error("Файл не сохранился") end
+            end)
+        end
+        if not ok then table.insert(morphLoadErrors, name) end
+        setLoadingProgress(0.15 + 0.65 * index / #files)
+        task.wait()
+    end
+end
 -- ================== УВЕДОМЛЕНИЯ НА ЭКРАНЕ ==================
 local function showNotification(titleText, msgText, isError)
     titleText = titleText or (isError and "Error" or "System")
@@ -1746,7 +1817,7 @@ local function injectBarboskinVisuals()
 
     tabBV.addComment("Настройки AFK, дня, зума, FOV и радужных предметов сохраняются.")
 
-    tabBV.addButton("Открыть поиск аксессуаров", openAccessoryCatalog)
+
 
     tabBV.addTitle("Визуал и камера")
 
@@ -2129,7 +2200,7 @@ local function injectBarboskinVisuals()
                     end
                 end
                 -- Нижняя часть Дружка Леди должна двигаться вместе с туловищем.
-                if path == "morphs/drujokledi.rbxm" and item.Name == "Handle"
+                if path == "Morphs/drujokledi.rbxm" and item.Name == "Handle"
                     and item.Parent and item.Parent.Name == "Дружок" then
                     for _, base in ipairs(bases) do
                         if base.from.Name == "Torso" or base.from.Name == "LowerTorso" then
@@ -2384,10 +2455,10 @@ local function injectBarboskinVisuals()
         applyRigTest("Morphs/eksursovod.rbxm")
     end)
     tabLocalMorphs.addButton("Дружок (тест)", function()
-        applyLocalMorph("morphs/druzhoktest.rbxm", "Дружок")
+        applyLocalMorph("Morphs/druzhoktest.rbxm", "Дружок")
     end)
     tabLocalMorphs.addButton("Дружок Леди", function()
-        applyLocalMorph("morphs/drujokledi.rbxm", "Дружок Леди")
+        applyLocalMorph("Morphs/drujokledi.rbxm", "Дружок Леди")
     end)
     tabLocalMorphs.addButton("Зайчиха", function()
         applyLocalMorph("Morphs/Zaichixa.rbxm", "Зайчиха")
@@ -2470,44 +2541,216 @@ local function injectBarboskinVisuals()
             }, "Скинсеты", "✅ Белый сет надет!", 0.5)
         end)
 
-    tabSkins.addTitle("Мои скинсеты")
-    local customRows = {}
-    refreshCustomSkinsets = function()
-        for _, row in ipairs(customRows) do if row.Parent then row:Destroy() end end
-        customRows = {}
-        for index, set in ipairs(customSkinsets) do
-            if type(set) == "table" and type(set.name) == "string" and type(set.items) == "table" then
-                local apply = tabSkins.addButton("👕 " .. set.name, function()
-                    local commands = {";clrhats"}
-                    for _, item in ipairs(set.items) do
-                        local id = tostring(item.id or "")
-                        if id:match("^%d+$") then
-                            table.insert(commands, (item.kind == "head" and ";head me " or ";hat me ") .. id)
+    local function openCustomSkinsets()
+        local old = playerGui:FindFirstChild("BarboskinCustomSkinsets")
+        if old then old:Destroy() end
+        local gui = Instance.new("ScreenGui")
+        gui.Name = "BarboskinCustomSkinsets"
+        gui.ResetOnSpawn = false
+        gui.DisplayOrder = 1001
+        gui.Parent = playerGui
+        local panel = Instance.new("Frame")
+        panel.AnchorPoint = Vector2.new(0.5, 0.5)
+        panel.Position = UDim2.fromScale(0.5, 0.5)
+        panel.Size = UDim2.fromScale(0.92, 0.86)
+        panel.BackgroundColor3 = Color3.fromRGB(28, 31, 43)
+        panel.BorderSizePixel = 0
+        panel.Parent = gui
+        local constraint = Instance.new("UISizeConstraint")
+        constraint.MaxSize = Vector2.new(700, 600)
+        constraint.Parent = panel
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 12)
+        corner.Parent = panel
+        local function makeButton(parent, text, pos, size)
+            local b = Instance.new("TextButton")
+            b.Position, b.Size = pos, size
+            b.BackgroundColor3 = Color3.fromRGB(64, 70, 91)
+            b.BorderSizePixel = 0
+            b.Font = Enum.Font.GothamBold
+            b.TextColor3 = Color3.new(1, 1, 1)
+            b.TextSize = 15
+            b.TextWrapped = true
+            b.Text = text
+            b.Parent = parent
+            local c = Instance.new("UICorner")
+            c.CornerRadius = UDim.new(0, 7)
+            c.Parent = b
+            return b
+        end
+        local title = Instance.new("TextLabel")
+        title.BackgroundTransparency = 1
+        title.Position = UDim2.fromOffset(16, 7)
+        title.Size = UDim2.new(1, -75, 0, 38)
+        title.Font = Enum.Font.GothamBold
+        title.Text = "Мои скинсеты"
+        title.TextColor3 = Color3.new(1, 1, 1)
+        title.TextSize = 20
+        title.TextXAlignment = Enum.TextXAlignment.Left
+        title.Parent = panel
+        makeButton(panel, "✕", UDim2.new(1, -48, 0, 8), UDim2.fromOffset(36, 34)).MouseButton1Click:Connect(function() gui:Destroy() end)
+        local list = Instance.new("ScrollingFrame")
+        list.Position = UDim2.fromOffset(16, 54)
+        list.Size = UDim2.new(1, -32, 1, -70)
+        list.BackgroundTransparency = 1
+        list.BorderSizePixel = 0
+        list.ScrollBarThickness = 5
+        list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        list.CanvasSize = UDim2.new()
+        list.Parent = panel
+        local layout = Instance.new("UIListLayout")
+        layout.Padding = UDim.new(0, 7)
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+        layout.Parent = list
+        local function render()
+            for _, child in ipairs(list:GetChildren()) do if child:IsA("Frame") or child:IsA("TextLabel") then child:Destroy() end end
+            if #customSkinsets == 0 then
+                local empty = Instance.new("TextLabel")
+                empty.BackgroundTransparency = 1
+                empty.Size = UDim2.new(1, -5, 0, 70)
+                empty.Font = Enum.Font.Gotham
+                empty.TextColor3 = Color3.fromRGB(190, 195, 210)
+                empty.TextWrapped = true
+                empty.Text = "Пока нет скинсетов. Создайте их из корзины в каталоге."
+                empty.Parent = list
+            end
+            for index, set in ipairs(customSkinsets) do
+                if type(set) == "table" and type(set.name) == "string" and type(set.items) == "table" then
+                    local row = Instance.new("Frame")
+                    row.Size = UDim2.new(1, -6, 0, 58)
+                    row.BackgroundTransparency = 1
+                    row.LayoutOrder = index
+                    row.Parent = list
+                    local apply = makeButton(row, "👕 " .. set.name, UDim2.new(), UDim2.new(1, -115, 1, 0))
+                    apply.MouseButton1Click:Connect(function()
+                        local commands = {";clrhats"}
+                        for _, item in ipairs(set.items) do
+                            local id = tostring(item.id or "")
+                            if id:match("^%d+$") then
+                                table.insert(commands, (item.kind == "head" and ";head me " or ";hat me ") .. id)
+                            end
                         end
-                    end
-                    runHDSequence(commands, "Скинсеты", "Команды скинсета отправлены", 0.5)
-                end)
-                local remove = tabSkins.addButton("🗑 Удалить: " .. set.name, function()
-                    local updated = table.clone(customSkinsets)
-                    table.remove(updated, index)
-                    if not saveCustomSkinsets(updated) then
-                        showNotification("Скинсеты", "Не удалось сохранить изменения", true)
-                        return
-                    end
-                    customSkinsets = updated
-                    refreshCustomSkinsets()
-                    showNotification("Скинсеты", "Скинсет удалён", false)
-                end)
-                table.insert(customRows, apply)
-                table.insert(customRows, remove)
+                        runHDSequence(commands, "Скинсеты", "Команды скинсета отправлены", 0.5)
+                    end)
+                    local remove = makeButton(row, "Удалить", UDim2.new(1, -108, 0, 0), UDim2.fromOffset(108, 58))
+                    remove.BackgroundColor3 = Color3.fromRGB(145, 55, 62)
+                    remove.MouseButton1Click:Connect(function()
+                        local oldConfirm = panel:FindFirstChild("ConfirmDelete")
+                        if oldConfirm then oldConfirm:Destroy() end
+                        local overlay = Instance.new("Frame")
+                        overlay.Name = "ConfirmDelete"
+                        overlay.Size = UDim2.fromScale(1, 1)
+                        overlay.BackgroundColor3 = Color3.fromRGB(12, 14, 21)
+                        overlay.BackgroundTransparency = 0.15
+                        overlay.BorderSizePixel = 0
+                        overlay.ZIndex = 10
+                        overlay.Parent = panel
+                        local message = Instance.new("TextLabel")
+                        message.AnchorPoint = Vector2.new(0.5, 0.5)
+                        message.Position = UDim2.fromScale(0.5, 0.42)
+                        message.Size = UDim2.new(1, -40, 0, 80)
+                        message.BackgroundTransparency = 1
+                        message.Font = Enum.Font.GothamBold
+                        message.Text = "Удалить скинсет «" .. set.name .. "»?"
+                        message.TextColor3 = Color3.new(1, 1, 1)
+                        message.TextSize = 19
+                        message.TextWrapped = true
+                        message.ZIndex = 11
+                        message.Parent = overlay
+                        local cancel = makeButton(overlay, "Отмена", UDim2.new(0.1, 0, 0.55, 0), UDim2.new(0.38, 0, 0, 44))
+                        local confirm = makeButton(overlay, "Удалить", UDim2.new(0.52, 0, 0.55, 0), UDim2.new(0.38, 0, 0, 44))
+                        cancel.ZIndex, confirm.ZIndex = 11, 11
+                        confirm.BackgroundColor3 = Color3.fromRGB(160, 55, 62)
+                        cancel.MouseButton1Click:Connect(function() overlay:Destroy() end)
+                        confirm.MouseButton1Click:Connect(function()
+                            local currentIndex = table.find(customSkinsets, set)
+                            if not currentIndex then overlay:Destroy(); render(); return end
+                            local updated = table.clone(customSkinsets)
+                            table.remove(updated, currentIndex)
+                            if not saveCustomSkinsets(updated) then
+                                overlay:Destroy()
+                                showNotification("Скинсеты", "Не удалось сохранить изменения", true)
+                                return
+                            end
+                            customSkinsets = updated
+                            overlay:Destroy()
+                            render()
+                        end)
+                    end)
+                end
             end
         end
+        refreshCustomSkinsets = function()
+            if gui.Parent then render() end
+        end
+        gui.Destroying:Connect(function() refreshCustomSkinsets = nil end)
+        render()
     end
-    refreshCustomSkinsets()
+
+
+    -- Одна кнопка Topbar открывает выбор нужного раздела.
+    pcall(function()
+        local module = ReplicatedStorage:WaitForChild("Icon", 5)
+        if not module then return end
+        local Icon = require(module)
+        if _G.BarboskinTopbarIcons then
+            for _, oldIcon in pairs(_G.BarboskinTopbarIcons) do pcall(function() oldIcon:destroy() end) end
+        end
+        local icon = Icon.new()
+            :setName("BarboskinVisuals")
+            :setImage(6031094678)
+            :setLabel("Поиск Аксессуаров")
+            :setCaption("BarboskinVisuals")
+            :oneClick()
+        _G.BarboskinTopbarIcons = {icon}
+        icon:bindEvent("selected", function()
+            local old = playerGui:FindFirstChild("BarboskinTopbarMenu")
+            if old then old:Destroy(); return end
+            local menu = Instance.new("ScreenGui")
+            menu.Name = "BarboskinTopbarMenu"
+            menu.ResetOnSpawn = false
+            menu.DisplayOrder = 1002
+            menu.Parent = playerGui
+            local frame = Instance.new("Frame")
+            frame.AnchorPoint = Vector2.new(0.5, 0)
+            frame.Position = UDim2.new(0.5, 0, 0, 8)
+            frame.Size = UDim2.new(0, 240, 0, 140)
+            frame.BackgroundColor3 = Color3.fromRGB(28, 31, 43)
+            frame.BorderSizePixel = 0
+            frame.Parent = menu
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(0, 10)
+            corner.Parent = frame
+            local function option(text, y, callback)
+                local button = Instance.new("TextButton")
+                button.Position = UDim2.new(0, 10, 0, y)
+                button.Size = UDim2.new(1, -20, 0, 38)
+                button.BackgroundColor3 = Color3.fromRGB(64, 70, 91)
+                button.BorderSizePixel = 0
+                button.Font = Enum.Font.GothamBold
+                button.Text = text
+                button.TextSize = 14
+                button.TextColor3 = Color3.new(1, 1, 1)
+                button.Parent = frame
+                local round = Instance.new("UICorner")
+                round.CornerRadius = UDim.new(0, 7)
+                round.Parent = button
+                button.MouseButton1Click:Connect(function() menu:Destroy(); callback() end)
+            end
+            option("Поиск аксессуаров", 8, openAccessoryCatalog)
+            option("Мои скинсеты", 51, openCustomSkinsets)
+            option("Закрыть", 94, function() end)
+        end)
+    end)
     return true
 end
 
 -- Первичное внедрение и повторное подключение после респавна.
+setLoadingStatus("Подготовка файлов морфов...")
+setLoadingProgress(0.15)
+preloadLocalMorphs()
+setLoadingStatus("Создание меню...")
+setLoadingProgress(0.85)
 local loadingOk, injected = pcall(injectBarboskinVisuals)
 if not loadingOk then warn("BarboskinVisuals: " .. tostring(injected)) end
 task.spawn(finishLoading, loadingOk and injected == true)
